@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Golisano Productivity Lab — Time Blocking Simulation</title>
+<style>
+  /* ============ Design tokens ============ */
+  :root{
+    --bg:#0b1220;
+    --panel:#111a2e;
+    --panel-2:#16213a;
+    --panel-3:#1c2a47;
+    --line:#24334f;
+    --line-soft:#1c2942;
+    --text:#e6ecf8;
+    --text-dim:#8ea0c0;
+    --text-faint:#5f7195;
+    --accent:#6366f1;
+    --accent-2:#8b5cf6;
+    --good:#34d399;
+    --warn:#fbbf24;
+    --bad:#f43f5e;
+    --sky:#38bdf8;
+    --amber:#f59e0b;
+    --emerald:#34d399;
+    --violet:#a78bfa;
+    --pink:#f472b6;
+    --radius:12px;
+    --shadow:0 10px 30px rgba(2,6,17,.45);
+    font-size:15px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:
+      radial-gradient(1100px 500px at 85% -10%, rgba(99,102,241,.14), transparent 60%),
+      radial-gradient(900px 420px at -10% 110%, rgba(139,92,246,.10), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+
+  /* ============ App frame ============ */
+  #app{display:flex;flex-direction:column;height:100vh;min-width:1080px}
+
+  header.topbar{
+    display:flex;align-items:center;gap:16px;
+    padding:14px 22px;
+    border-bottom:1px solid var(--line-soft);
+    background:rgba(13,20,36,.85);
+    backdrop-filter:blur(8px);
+    z-index:20;
+  }
+  .logo{
+    width:38px;height:38px;border-radius:10px;flex:none;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:grid;place-items:center;font-weight:800;font-size:17px;color:white;
+    box-shadow:0 4px 14px rgba(99,102,241,.4);
+  }
+  .title-wrap h1{font-size:16px;font-weight:700;letter-spacing:.2px}
+  .title-wrap p{font-size:12px;color:var(--text-dim)}
+  .topbar-spacer{flex:1}
+  .week-pill{
+    font-size:12px;color:var(--text-dim);
+    border:1px solid var(--line);border-radius:999px;padding:6px 14px;
+    background:var(--panel);
+  }
+  .btn{
+    border:1px solid var(--line);
+    background:var(--panel-2);
+    color:var(--text);
+    font:inherit;font-size:13px;font-weight:600;
+    padding:9px 16px;border-radius:10px;cursor:pointer;
+    transition:transform .12s ease, background .12s ease, border-color .12s ease;
+  }
+  .btn:hover{background:var(--panel-3);border-color:#31446b;transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+  .btn-primary{
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    border-color:transparent;color:#fff;
+    box-shadow:0 4px 16px rgba(99,102,241,.35);
+  }
+  .btn-primary:hover{background:linear-gradient(135deg,#6d70f5,#9668f8);filter:brightness(1.06)}
+  .btn-ghost{background:transparent;border-color:transparent;color:var(--text-dim)}
+  .btn-ghost:hover{background:var(--panel-2);color:var(--text)}
+
+  .layout{display:flex;flex:1;min-height:0}
+
+  /* ============ Sidebar ============ */
+  aside.sidebar{
+    width:390px;flex:none;display:flex;flex-direction:column;min-height:0;
+    background:rgba(15,23,42,.6);
+    border-right:1px solid var(--line-soft);
+  }
+  .meters{padding:16px 18px 12px;border-bottom:1px solid var(--line-soft)}
+  .meter-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .meter-head .label{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-dim)}
+  .meter-head .value{font-size:12px;font-weight:700}
+  .quota-track{
+    position:relative;height:14px;border-radius:999px;background:var(--panel-2);
+    border:1px solid var(--line);overflow:visible;
+  }
+  .quota-fill{
+    height:100%;border-radius:999px;width:0%;
+    background:linear-gradient(90deg,#4f46e5,#8b5cf6);
+    transition:width .35s cubic-bezier(.4,0,.2,1), background .3s;
+    min-width:0;
+  }
+  .quota-fill.good{background:linear-gradient(90deg,#059669,#34d399)}
+  .quota-fill.over{background:linear-gradient(90deg,#d97706,#fbbf24)}
+  .quota-marker{
+    position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--text-faint);border-radius:2px;
+  }
+  .quota-marker::after{
+    content:attr(data-label);position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    font-size:9.5px;color:var(--text-faint);padding-top:3px;white-space:nowrap;
+  }
+  .quota-note{margin-top:18px;font-size:11.5px;color:var(--text-dim);line-height:1.45}
+  .quota-note b{color:var(--text)}
+
+  .backlog-head{
+    padding:14px 18px 8px;display:flex;align-items:baseline;justify-content:space-between;
+  }
+  .backlog-head h2{font-size:13px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-dim)}
+  .backlog-head .count{font-size:11.5px;color:var(--text-faint)}
+  .backlog{
+    flex:1;overflow-y:auto;padding:4px 18px 18px;min-height:0;
+  }
+  .backlog.drag-over{outline:2px dashed var(--accent);outline-offset:-6px;border-radius:12px;background:rgba(99,102,241,.06)}
+  .backlog::-webkit-scrollbar,.grid-scroll::-webkit-scrollbar{width:9px;height:9px}
+  .backlog::-webkit-scrollbar-thumb,.grid-scroll::-webkit-scrollbar-thumb{background:#26355a;border-radius:8px}
+  .backlog::-webkit-scrollbar-track,.grid-scroll::-webkit-scrollbar-track{background:transparent}
+
+  .section-label{
+    font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;
+    color:var(--text-faint);margin:16px 2px 8px;display:flex;align-items:center;gap:8px;
+  }
+  .section-label::after{content:"";flex:1;height:1px;background:var(--line-soft)}
+
+  /* Task cards */
+  .card{
+    position:relative;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:10px 12px;
+    margin-bottom:8px;
+    transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease, opacity .2s;
+  }
+  .card.draggable{cursor:grab}
+  .card.draggable:hover{transform:translateY(-1px);border-color:#32456e;box-shadow:0 6px 18px rgba(2,6,17,.4)}
+  .card.dragging{opacity:.35;transform:scale(.98)}
+  .card.unverified{
+    border-style:dashed;border-color:#3b4d75;background:rgba(22,33,58,.5);cursor:pointer;
+  }
+  .card.unverified:hover{border-color:var(--accent);background:rgba(99,102,241,.08)}
+  .card-top{display:flex;align-items:flex-start;gap:8px}
+  .grip{color:var(--text-faint);font-size:13px;line-height:1.5;flex:none;letter-spacing:-1px}
+  .card-name{font-size:13px;font-weight:600;line-height:1.35;flex:1}
+  .card-src{font-size:11px;color:var(--text-dim);margin-top:1px}
+  .card-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;align-items:center}
+  .chip{
+    font-size:10.5px;font-weight:700;padding:2.5px 8px;border-radius:999px;
+    border:1px solid transparent;letter-spacing:.2px;
+  }
+  .chip.cat-coursework{background:rgba(56,189,248,.13);color:var(--sky);border-color:rgba(56,189,248,.3)}
+  .chip.cat-internship{background:rgba(245,158,11,.13);color:var(--amber);border-color:rgba(245,158,11,.3)}
+  .chip.cat-study{background:rgba(52,211,153,.13);color:var(--emerald);border-color:rgba(52,211,153,.3)}
+  .chip.est{background:var(--panel-3);color:var(--text-dim);border-color:var(--line)}
+  .chip.due{background:rgba(244,114,182,.1);color:var(--pink);border-color:rgba(244,114,182,.28)}
+  .chip.due.missed{background:rgba(244,63,94,.18);color:#fda4af;border-color:rgba(244,63,94,.45)}
+  .pri-dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+  .pri-high{background:var(--bad);box-shadow:0 0 8px rgba(244,63,94,.7)}
+  .pri-med{background:var(--warn)}
+  .pri-low{background:#64748b}
+  .pri-tag{font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;gap:5px;color:var(--text-dim)}
+  .setup-cue{
+    font-size:11px;font-weight:700;color:var(--accent);
+    display:inline-flex;align-items:center;gap:5px;margin-top:8px;
+  }
+  .card .edit-btn{
+    position:absolute;top:8px;right:8px;
+    border:none;background:transparent;color:var(--text-faint);cursor:pointer;
+    font-size:12px;padding:3px 5px;border-radius:6px;opacity:0;transition:opacity .12s;
+  }
+  .card:hover .edit-btn{opacity:1}
+  .card .edit-btn:hover{background:var(--panel-3);color:var(--text)}
+
+  /* Project cards */
+  .card.project{background:linear-gradient(180deg,rgba(139,92,246,.10),rgba(22,33,58,.6));border-color:rgba(139,92,246,.35);cursor:pointer}
+  .card.project:hover{border-color:var(--violet)}
+  .project-tag{
+    font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
+    color:var(--violet);display:flex;align-items:center;gap:6px;margin-bottom:5px;
+    white-space:nowrap;
+  }
+  .project-toggle{margin-left:auto;color:var(--text-dim);font-size:11px;font-weight:600;transition:transform .2s}
+  .project.expanded .project-toggle .chev{display:inline-block;transform:rotate(90deg)}
+  .chev{display:inline-block;transition:transform .2s;font-size:10px}
+  .project-progress{font-size:11px;color:var(--text-dim);margin-top:7px}
+  .project-bar{height:4px;border-radius:99px;background:var(--panel-3);margin-top:5px;overflow:hidden}
+  .project-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent-2),var(--violet));border-radius:99px;transition:width .3s}
+  .chunk-list{margin:2px 0 10px 14px;padding-left:10px;border-left:2px solid rgba(139,92,246,.3)}
+  .chunk-list .card{margin-bottom:6px;padding:8px 10px}
+  .chunk-part{
+    font-size:9.5px;font-weight:800;letter-spacing:.6px;color:var(--violet);
+    text-transform:uppercase;margin-bottom:2px;
+  }
+  .card.scheduled-away{opacity:.42}
+  .card.scheduled-away .card-name{text-decoration:line-through;text-decoration-color:var(--text-faint)}
+  .placed-note{font-size:10.5px;color:var(--emerald);font-weight:700;margin-top:6px}
+
+  /* Study block spawner */
+  .spawner{
+    border:1px dashed var(--line);border-radius:var(--radius);
+    padding:12px;margin-bottom:8px;background:rgba(52,211,153,.04);
+  }
+  .spawner p{font-size:11.5px;color:var(--text-dim);line-height:1.4;margin-bottom:9px}
+  .spawner p b{color:var(--emerald)}
+  .spawn-row{display:flex;gap:6px}
+  .spawn-btn{
+    flex:1;font:inherit;font-size:12px;font-weight:700;
+    border:1px solid rgba(52,211,153,.35);background:rgba(52,211,153,.1);color:var(--emerald);
+    border-radius:8px;padding:7px 0;cursor:pointer;transition:background .12s,transform .12s;
+  }
+  .spawn-btn:hover{background:rgba(52,211,153,.2);transform:translateY(-1px)}
+
+  /* ============ Main / grid ============ */
+  main.board{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+  .board-head{
+    padding:14px 22px 10px;display:flex;align-items:center;gap:14px;flex:none;
+  }
+  .board-head h2{font-size:15px;font-weight:700}
+  .board-head .sub{font-size:12px;color:var(--text-dim)}
+
+  .alert-strip{
+    padding:0 22px;display:flex;flex-direction:column;gap:6px;flex:none;
+  }
+  .alert{
+    display:flex;align-items:center;gap:10px;
+    font-size:12.5px;font-weight:600;
+    border-radius:10px;padding:8px 13px;
+    animation:slideIn .25s ease;
+  }
+  @keyframes slideIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  .alert.bad{background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.4);color:#fda4af}
+  .alert.warn{background:rgba(251,191,36,.09);border:1px solid rgba(251,191,36,.35);color:#fcd34d}
+  .alert .ico{flex:none}
+  .alert.bad .ico{animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+  .grid-scroll{flex:1;overflow:auto;padding:10px 22px 22px;min-height:0}
+  .week-grid{
+    display:grid;
+    grid-template-columns:78px repeat(7,minmax(150px,1fr));
+    gap:8px;min-width:1150px;
+  }
+  .day-head{
+    text-align:center;padding:8px 4px 9px;border-radius:10px;
+    background:var(--panel);border:1px solid var(--line-soft);
+    position:sticky;top:0;z-index:5;
+  }
+  .day-head .d-name{font-size:13px;font-weight:700}
+  .day-head .d-load{font-size:10.5px;color:var(--text-faint);margin-top:2px;font-weight:600}
+  .day-head .d-load.hot{color:var(--warn)}
+  .day-head .d-load.burn{color:var(--bad)}
+  .day-head.weekend .d-name{color:var(--text-dim)}
+  .day-head.burnout{border-color:rgba(244,63,94,.55);box-shadow:0 0 14px rgba(244,63,94,.25)}
+  .row-label{
+    display:flex;flex-direction:column;justify-content:center;align-items:flex-end;
+    padding:8px 10px 8px 0;text-align:right;
+  }
+  .row-label .r-name{font-size:12px;font-weight:700;color:var(--text-dim)}
+  .row-label .r-time{font-size:10px;color:var(--text-faint);margin-top:2px}
+
+  .cell{
+    background:var(--panel);
+    border:1px solid var(--line-soft);
+    border-radius:var(--radius);
+    padding:7px;min-height:104px;
+    display:flex;flex-direction:column;gap:5px;
+    transition:border-color .15s, box-shadow .15s, background .15s;
+  }
+  .cell.weekend{background:rgba(17,26,46,.55)}
+  .cell.drag-over{border-color:var(--accent);background:rgba(99,102,241,.09);box-shadow:inset 0 0 0 1px var(--accent)}
+  .cell.over-cap{
+    border-color:rgba(244,63,94,.65);
+    background:rgba(244,63,94,.06);
+    box-shadow:0 0 16px rgba(244,63,94,.28), inset 0 0 0 1px rgba(244,63,94,.4);
+    animation:glowRed 1.8s infinite;
+  }
+  @keyframes glowRed{
+    0%,100%{box-shadow:0 0 16px rgba(244,63,94,.28), inset 0 0 0 1px rgba(244,63,94,.4)}
+    50%{box-shadow:0 0 24px rgba(244,63,94,.5), inset 0 0 0 1px rgba(244,63,94,.6)}
+  }
+  .cell-body{display:flex;flex-direction:column;gap:5px;flex:1}
+  .cell-foot{display:flex;align-items:center;gap:7px;margin-top:auto;padding-top:3px}
+  .cap-bar{flex:1;height:4px;border-radius:99px;background:var(--panel-3);overflow:hidden}
+  .cap-bar i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .25s,background .25s}
+  .cap-bar i.full{background:var(--warn)}
+  .cap-bar i.over{background:var(--bad)}
+  .cap-txt{font-size:9.5px;color:var(--text-faint);font-weight:700;white-space:nowrap}
+  .cap-txt.over{color:var(--bad)}
+
+  /* chips inside cells */
+  .slot-item{
+    border-radius:9px;padding:6px 8px;font-size:11.5px;line-height:1.3;
+    display:flex;align-items:center;gap:7px;position:relative;
+    border:1px solid var(--line);background:var(--panel-2);
+    cursor:grab;transition:transform .1s, box-shadow .1s;
+  }
+  .slot-item:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(2,6,17,.35)}
+  .slot-item.dragging{opacity:.35}
+  .slot-item .si-name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .slot-item .si-est{font-size:10px;color:var(--text-dim);font-weight:700;flex:none}
+  .slot-item .si-x{
+    border:none;background:transparent;color:var(--text-faint);cursor:pointer;
+    font-size:13px;line-height:1;padding:2px 3px;border-radius:5px;flex:none;
+  }
+  .slot-item .si-x:hover{color:var(--bad);background:rgba(244,63,94,.12)}
+  .slot-item.cat-coursework{border-left:3px solid var(--sky)}
+  .slot-item.cat-internship{border-left:3px solid var(--amber)}
+  .slot-item.cat-study{border-left:3px solid var(--emerald)}
+  .slot-item.deadline-miss{border-color:rgba(244,63,94,.55);background:rgba(244,63,94,.09)}
+  .slot-item .miss-flag{font-size:10px;flex:none}
+  .slot-item.class-block{
+    background:linear-gradient(135deg,rgba(99,102,241,.16),rgba(139,92,246,.12));
+    border:1px solid rgba(99,102,241,.4);border-left:3px solid var(--accent);
+    cursor:default;
+  }
+  .slot-item.class-block:hover{transform:none;box-shadow:none}
+  .slot-item.class-block .si-name{color:#c7d2fe}
+  .lock{font-size:10px;flex:none;opacity:.8}
+
+  /* ============ Modals ============ */
+  .overlay{
+    position:fixed;inset:0;background:rgba(4,8,18,.7);backdrop-filter:blur(4px);
+    display:none;align-items:center;justify-content:center;z-index:50;
+    animation:fadeIn .18s ease;
+  }
+  .overlay.open{display:flex}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .modal{
+    width:min(480px,92vw);max-height:86vh;overflow-y:auto;
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);padding:24px;
+    animation:popIn .2s cubic-bezier(.34,1.4,.64,1);
+  }
+  .modal.wide{width:min(560px,94vw)}
+  @keyframes popIn{from{opacity:0;transform:scale(.96) translateY(6px)}to{opacity:1;transform:none}}
+  .modal h3{font-size:17px;font-weight:800;margin-bottom:4px}
+  .modal .m-sub{font-size:12.5px;color:var(--text-dim);line-height:1.5;margin-bottom:16px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:11px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px}
+  .field .hint{font-size:11px;color:var(--text-faint);margin-top:5px;line-height:1.4}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button{
+    font:inherit;font-size:12.5px;font-weight:700;
+    border:1px solid var(--line);background:var(--panel-2);color:var(--text-dim);
+    padding:8px 14px;border-radius:9px;cursor:pointer;transition:all .12s;
+  }
+  .seg button:hover{border-color:#33466f;color:var(--text)}
+  .seg button.sel{
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    border-color:transparent;color:#fff;box-shadow:0 3px 10px rgba(99,102,241,.35);
+  }
+  .seg button.sel.pri-h{background:linear-gradient(135deg,#e11d48,#f43f5e);box-shadow:0 3px 10px rgba(244,63,94,.35)}
+  .seg button.sel.pri-m{background:linear-gradient(135deg,#d97706,#f59e0b);box-shadow:0 3px 10px rgba(245,158,11,.3)}
+  .seg button.sel.pri-l{background:linear-gradient(135deg,#475569,#64748b);box-shadow:none}
+  .fixed-chip-row{display:flex;gap:6px;flex-wrap:wrap}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+
+  /* Report modal */
+  .report-item{
+    display:flex;gap:11px;align-items:flex-start;
+    padding:11px 13px;border-radius:11px;margin-bottom:8px;
+    border:1px solid var(--line);background:var(--panel-2);
+    font-size:12.5px;line-height:1.5;
+  }
+  .report-item .r-ico{font-size:15px;flex:none;margin-top:1px}
+  .report-item b{display:block;font-size:12.5px;margin-bottom:1px}
+  .report-item span{color:var(--text-dim)}
+  .report-item.ok{border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.06)}
+  .report-item.warn{border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.05)}
+  .report-item.bad{border-color:rgba(244,63,94,.4);background:rgba(244,63,94,.06)}
+  .verdict{
+    text-align:center;padding:18px 12px 6px;
+  }
+  .verdict .v-emoji{font-size:34px}
+  .verdict .v-title{font-size:16px;font-weight:800;margin-top:8px}
+  .verdict .v-sub{font-size:12.5px;color:var(--text-dim);margin-top:4px;line-height:1.5}
+
+  /* Intro modal */
+  .steps{display:flex;flex-direction:column;gap:11px;margin:16px 0 4px}
+  .step{display:flex;gap:13px;align-items:flex-start}
+  .step .s-num{
+    width:26px;height:26px;border-radius:8px;flex:none;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:grid;place-items:center;font-size:12.5px;font-weight:800;color:#fff;
+  }
+  .step b{font-size:13px;display:block}
+  .step span{font-size:12px;color:var(--text-dim);line-height:1.5}
+
+  /* Toast */
+  #toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--panel-3);border:1px solid var(--line);color:var(--text);
+    font-size:12.5px;font-weight:600;padding:10px 18px;border-radius:10px;
+    box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:all .25s;z-index:80;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ Top bar ============ -->
+  <header class="topbar">
+    <div class="logo">G</div>
+    <div class="title-wrap">
+      <h1>Golisano Productivity Lab</h1>
+      <p>Time-Blocking &amp; Workflow Simulation · Golisano Institute for Business &amp; Entrepreneurship</p>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="week-pill">📅 Simulated Week · Fall Orientation</div>
+    <button class="btn btn-ghost" id="btnHelp">How it works</button>
+    <button class="btn" id="btnReset">Reset</button>
+    <button class="btn btn-primary" id="btnCheck">✓ Check My Week</button>
+  </header>
+
+  <div class="layout">
+
+    <!-- ============ Sidebar: quota meters + backlog ============ -->
+    <aside class="sidebar">
+      <div class="meters">
+        <div class="meter-head">
+          <span class="label">Independent Study Quota</span>
+          <span class="value" id="quotaValue">0h</span>
+        </div>
+        <div class="quota-track">
+          <div class="quota-fill" id="quotaFill"></div>
+          <div class="quota-marker" id="quotaMin" data-label="min 18h"></div>
+          <div class="quota-marker" id="quotaMax" data-label="target 27h"></div>
+        </div>
+        <p class="quota-note" id="quotaNote"></p>
+      </div>
+
+      <div class="backlog-head">
+        <h2>Backlog Tray</h2>
+        <span class="count" id="backlogCount"></span>
+      </div>
+      <div class="backlog" id="backlog"></div>
+    </aside>
+
+    <!-- ============ Main: weekly grid ============ -->
+    <main class="board">
+      <div class="board-head">
+        <h2>Weekly Time Blocks</h2>
+        <span class="sub">Drag tasks from the backlog into a block. Class sessions are locked in.</span>
+      </div>
+      <div class="alert-strip" id="alertStrip"></div>
+      <div class="grid-scroll">
+        <div class="week-grid" id="weekGrid"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ============ Task setup modal ============ -->
+<div class="overlay" id="taskOverlay">
+  <div class="modal">
+    <h3 id="tmName">Task</h3>
+    <p class="m-sub" id="tmSub">Verify this task before it can be scheduled. Use the estimates from your paper brain-dump exercise — then be honest with yourself.</p>
+
+    <div class="field">
+      <label>Category</label>
+      <div class="fixed-chip-row" id="tmCat"></div>
+    </div>
+
+    <div class="field">
+      <label>Estimated completion time</label>
+      <div class="seg" id="tmEst"></div>
+      <p class="hint" id="tmEstHint"></p>
+    </div>
+
+    <div class="field">
+      <label>Priority level</label>
+      <div class="seg" id="tmPri"></div>
+    </div>
+
+    <div class="field">
+      <label>Hard deadline</label>
+      <div class="fixed-chip-row" id="tmDue"></div>
+      <p class="hint">Deadlines are set by your professors and internship supervisor — you can't move them, only plan around them.</p>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" id="tmCancel">Cancel</button>
+      <button class="btn btn-primary" id="tmConfirm">Confirm &amp; unlock ➜</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Check My Week modal ============ -->
+<div class="overlay" id="reportOverlay">
+  <div class="modal wide">
+    <h3>📋 Weekly Plan Review</h3>
+    <p class="m-sub">Here's how your week holds up against the Golisano workload standard.</p>
+    <div id="reportBody"></div>
+    <div class="verdict" id="reportVerdict"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="reportClose">Back to planning</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Intro modal ============ -->
+<div class="overlay" id="introOverlay">
+  <div class="modal wide">
+    <h3>👋 Welcome to the Productivity Lab</h3>
+    <p class="m-sub">You're one week into the accelerated program. Your courses, an internship, and your own deep work are all competing for the same 7 days. Let's see how you'd really plan it.</p>
+    <div class="steps">
+      <div class="step"><div class="s-num">1</div><div><b>Verify your backlog</b><span>Every task starts locked. Click it, confirm a realistic time estimate and priority, and it unlocks for scheduling.</span></div></div>
+      <div class="step"><div class="s-num">2</div><div><b>Deconstruct the elephant</b><span>Big projects can't be dropped on one day. Expand them to reveal sequential chunks — Research → Outline → Draft → Polish — and spread them out.</span></div></div>
+      <div class="step"><div class="s-num">3</div><div><b>Drag &amp; drop your week</b><span>Move tasks into morning, afternoon, and evening blocks around your locked class sessions.</span></div></div>
+      <div class="step"><div class="s-num">4</div><div><b>Watch the guardrails</b><span>Hit your independent study quota (2–3h per class hour), avoid overloading any block, and beat every hard deadline. Then hit <b>Check My Week</b>.</span></div></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="introClose">Let's build my week ➜</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Golisano Productivity Lab — Time Blocking Simulation
+   Single-file app: state, drag-and-drop, and quota guardrails below.
+   ===================================================================== */
+
+const STORAGE_KEY = 'golisano-timeblock-v1';
+
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const BLOCKS = [
+  {id:'morning',   label:'Morning',   time:'8 AM – 12 PM', cap:4},
+  {id:'afternoon', label:'Afternoon', time:'1 PM – 5 PM',  cap:4},
+  {id:'evening',   label:'Evening',   time:'6 PM – 9 PM',  cap:3},
+];
+const BLOCK_INDEX = Object.fromEntries(BLOCKS.map((b,i)=>[b.id,i]));
+
+// Locked class sessions the student must plan around. 9 class hours/week.
+const CLASS_SESSIONS = [
+  {code:'ENT-101', name:'Principles of Entrepreneurship', day:0, block:'morning',   hours:1.5},
+  {code:'ENT-101', name:'Principles of Entrepreneurship', day:2, block:'morning',   hours:1.5},
+  {code:'ACC-110', name:'Applied Financial Accounting',   day:1, block:'morning',   hours:1.5},
+  {code:'ACC-110', name:'Applied Financial Accounting',   day:3, block:'morning',   hours:1.5},
+  {code:'COM-105', name:'Business Communication',         day:0, block:'afternoon', hours:1.5},
+  {code:'COM-105', name:'Business Communication',         day:3, block:'afternoon', hours:1.5},
+];
+const CLASS_HOURS = CLASS_SESSIONS.reduce((s,c)=>s+c.hours,0); // 9h
+
+// Golisano standard: 2–3 independent hours per class hour.
+const QUOTA_MIN = CLASS_HOURS * 2;   // 18h
+const QUOTA_MAX = CLASS_HOURS * 3;   // 27h
+
+const EST_OPTIONS = [0.5, 1, 1.5, 2, 3];
+const DAY_BURNOUT_HOURS = 9;   // classes + tasks beyond this = burnout risk
+const HIGH_PRI_PILEUP = 3;     // ≥ this many high-priority tasks in one day
+
+const CATS = {
+  coursework: {label:'Coursework',        cls:'cat-coursework'},
+  internship: {label:'Internship',        cls:'cat-internship'},
+  study:      {label:'Independent Study', cls:'cat-study'},
+};
+const PRIS = [
+  {id:'high', label:'High',   cls:'pri-h'},
+  {id:'med',  label:'Medium', cls:'pri-m'},
+  {id:'low',  label:'Low',    cls:'pri-l'},
+];
+
+/* ---------- Seed data ---------- */
+function seedTasks(){
+  const t = [];
+  const add = o => { t.push(Object.assign({
+    id:o.id, verified:false, scheduled:null, parent:null, part:null,
+    isProject:false, expanded:false, chunks:null, spawned:false,
+  }, o)); };
+
+  // Standalone coursework
+  add({id:'c1', name:'Case Study: Read + Annotate', src:'ENT-101 · Principles of Entrepreneurship', cat:'coursework', est:1,   sug:1,   pri:'med',  due:2});
+  add({id:'c2', name:'Elevator Pitch Practice',      src:'ENT-101 · Principles of Entrepreneurship', cat:'coursework', est:1,   sug:1,   pri:'high', due:4});
+  add({id:'c3', name:'Problem Set 2: Journal Entries', src:'ACC-110 · Applied Financial Accounting', cat:'coursework', est:2,   sug:2,   pri:'high', due:3});
+  add({id:'c4', name:'Ledger Lab Prep',              src:'ACC-110 · Applied Financial Accounting',  cat:'coursework', est:1,   sug:1,   pri:'med',  due:1});
+  add({id:'c5', name:'Persuasive Memo Draft',        src:'COM-105 · Business Communication',        cat:'coursework', est:1.5, sug:1.5, pri:'med',  due:4});
+  add({id:'c6', name:'Reading Quiz Prep',            src:'COM-105 · Business Communication',        cat:'coursework', est:0.5, sug:0.5, pri:'low',  due:3});
+
+  // Project 1: Market Research Deck (internship) — chunked
+  add({id:'p1', name:'Market Research Deck', src:'Internship · Brightline Ventures', cat:'internship',
+       isProject:true, chunks:['p1a','p1b','p1c','p1d'], est:6, pri:'high', due:6});
+  add({id:'p1a', name:'Research: TAM + competitor pull', src:'Market Research Deck', cat:'internship', est:2,   sug:2,   pri:'high', due:2, parent:'p1', part:1});
+  add({id:'p1b', name:'Outline: deck narrative',         src:'Market Research Deck', cat:'internship', est:1,   sug:1,   pri:'med',  due:3, parent:'p1', part:2});
+  add({id:'p1c', name:'Draft: build the slides',         src:'Market Research Deck', cat:'internship', est:2,   sug:2,   pri:'high', due:4, parent:'p1', part:3});
+  add({id:'p1d', name:'Polish: design + rehearse',       src:'Market Research Deck', cat:'internship', est:1,   sug:1,   pri:'med',  due:6, parent:'p1', part:4});
+
+  // Project 2: Social Media Audit (internship) — chunked
+  add({id:'p2', name:'Social Media Audit', src:'Internship · Brightline Ventures', cat:'internship',
+       isProject:true, chunks:['p2a','p2b','p2c'], est:4, pri:'med', due:5});
+  add({id:'p2a', name:'Collect: channel metrics export', src:'Social Media Audit', cat:'internship', est:1.5, sug:1.5, pri:'med',  due:1, parent:'p2', part:1});
+  add({id:'p2b', name:'Scan: 3 competitor accounts',     src:'Social Media Audit', cat:'internship', est:1,   sug:1,   pri:'low',  due:3, parent:'p2', part:2});
+  add({id:'p2c', name:'Write-up: findings + recs',       src:'Social Media Audit', cat:'internship', est:1.5, sug:1.5, pri:'high', due:5, parent:'p2', part:3});
+
+  return t;
+}
+
+/* ---------- State ---------- */
+let state = null;
+
+function defaultState(){
+  return { tasks: seedTasks(), spawnCount: 0, introSeen: false };
+}
+function save(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    const s = JSON.parse(raw);
+    if(!s || !Array.isArray(s.tasks)) return null;
+    return s;
+  }catch(e){ return null; }
+}
+function task(id){ return state.tasks.find(t=>t.id===id); }
+function fmtH(h){ return (h % 1 === 0 ? h : h.toFixed(1)) + 'h'; }
+
+/* Schedulable = verified, not a project container */
+function schedulable(t){ return !t.isProject; }
+function scheduledTasks(){ return state.tasks.filter(t=>t.scheduled && !t.isProject); }
+function tasksIn(day, block){ return scheduledTasks().filter(t=>t.scheduled.d===day && t.scheduled.b===block); }
+function classesIn(day, block){ return CLASS_SESSIONS.filter(c=>c.day===day && c.block===block); }
+function cellTaskHours(day, block){ return tasksIn(day,block).reduce((s,t)=>s+t.est,0); }
+function cellClassHours(day, block){ return classesIn(day,block).reduce((s,c)=>s+c.hours,0); }
+function cellFreeCap(day, block){
+  const b = BLOCKS.find(x=>x.id===block);
+  return b.cap - cellClassHours(day, block);
+}
+function dayLoad(day){
+  const cls = CLASS_SESSIONS.filter(c=>c.day===day).reduce((s,c)=>s+c.hours,0);
+  const tsk = scheduledTasks().filter(t=>t.scheduled.d===day).reduce((s,t)=>s+t.est,0);
+  return {cls, tsk, total: cls+tsk};
+}
+function quotaHours(){
+  // Coursework + independent study time scheduled outside class = the "2–3h per class hour" standard.
+  return scheduledTasks()
+    .filter(t=>t.cat==='coursework' || t.cat==='study')
+    .reduce((s,t)=>s+t.est,0);
+}
+function slotIndex(sch){ return sch.d*BLOCKS.length + BLOCK_INDEX[sch.b]; }
+
+/* ---------- Alerts / guardrails ---------- */
+function computeAlerts(){
+  const alerts = [];
+  // Over-capacity blocks
+  for(let d=0; d<7; d++){
+    for(const b of BLOCKS){
+      const used = cellTaskHours(d,b.id), free = cellFreeCap(d,b.id);
+      if(used > free){
+        alerts.push({sev:'bad', ico:'🔥',
+          text:`${DAYS[d]} ${b.label.toLowerCase()} is over capacity — ${fmtH(used)} of work in ${fmtH(free)} of open time. Something has to move.`});
+      }
+    }
+  }
+  // Burnout days
+  for(let d=0; d<7; d++){
+    const load = dayLoad(d);
+    if(load.total > DAY_BURNOUT_HOURS){
+      alerts.push({sev:'bad', ico:'⚠️',
+        text:`Burnout alert: ${DAYS[d]} totals ${fmtH(load.total)} of classes + work. Nobody does their best thinking in hour ten.`});
+    }
+  }
+  // High-priority pileups
+  for(let d=0; d<7; d++){
+    const highs = scheduledTasks().filter(t=>t.scheduled.d===d && t.pri==='high').length;
+    if(highs >= HIGH_PRI_PILEUP){
+      alerts.push({sev:'warn', ico:'🎯',
+        text:`${highs} high-priority tasks stacked on ${DAYS[d]}. Spread the pressure across the week.`});
+    }
+  }
+  // Deadline misses
+  for(const t of scheduledTasks()){
+    if(t.due != null && t.scheduled.d > t.due){
+      alerts.push({sev:'bad', ico:'⏰',
+        text:`“${t.name}” is scheduled for ${DAYS[t.scheduled.d]} but due ${DAYS[t.due]}.`});
+    }
+  }
+  // Chunk sequence violations
+  for(const p of state.tasks.filter(t=>t.isProject)){
+    const placed = p.chunks.map(id=>task(id)).filter(c=>c.scheduled);
+    for(let i=0;i<placed.length;i++){
+      for(let j=0;j<placed.length;j++){
+        if(placed[i].part < placed[j].part && slotIndex(placed[i].scheduled) > slotIndex(placed[j].scheduled)){
+          alerts.push({sev:'warn', ico:'🐘',
+            text:`${p.name}: Part ${placed[j].part} is scheduled before Part ${placed[i].part}. Chunks build on each other — keep them in order.`});
+        }
+      }
+    }
+  }
+  // De-dupe repeated messages (chunk pairs can double up)
+  const seen = new Set();
+  return alerts.filter(a=>{ if(seen.has(a.text)) return false; seen.add(a.text); return true; });
+}
+
+/* ---------- Rendering ---------- */
+const $ = sel => document.querySelector(sel);
+
+function render(){
+  renderQuota();
+  renderBacklog();
+  renderGrid();
+  renderAlerts();
+  save();
+}
+
+function renderQuota(){
+  const h = quotaHours();
+  const scaleMax = QUOTA_MAX + 5; // headroom past target
+  const pct = Math.min(100, (h/scaleMax)*100);
+  const fill = $('#quotaFill');
+  fill.style.width = pct + '%';
+  fill.className = 'quota-fill' + (h>=QUOTA_MIN && h<=QUOTA_MAX ? ' good' : (h>QUOTA_MAX ? ' over' : ''));
+  $('#quotaMin').style.left = (QUOTA_MIN/scaleMax*100) + '%';
+  $('#quotaMax').style.left = (QUOTA_MAX/scaleMax*100) + '%';
+  $('#quotaValue').textContent = fmtH(h);
+  const note = $('#quotaNote');
+  if(h < QUOTA_MIN){
+    note.innerHTML = `You've blocked <b>${fmtH(h)}</b> of coursework + independent study against <b>${fmtH(CLASS_HOURS)}</b> of class time. The Golisano standard is <b>2–3 hours per class hour</b> (${fmtH(QUOTA_MIN)}–${fmtH(QUOTA_MAX)}). Keep going — spawn Deep Work blocks below.`;
+  } else if(h <= QUOTA_MAX){
+    note.innerHTML = `💪 <b>On standard.</b> ${fmtH(h)} of study + coursework against ${fmtH(CLASS_HOURS)} class hours — right in the ${fmtH(QUOTA_MIN)}–${fmtH(QUOTA_MAX)} zone.`;
+  } else {
+    note.innerHTML = `🔥 <b>${fmtH(h)}</b> is past the ${fmtH(QUOTA_MAX)} target. Ambitious — but check the burnout warnings before you commit to this.`;
+  }
+}
+
+function chipHTML(t){
+  const cat = CATS[t.cat];
+  const bits = [];
+  bits.push(`<span class="chip ${cat.cls}">${cat.label}</span>`);
+  bits.push(`<span class="chip est">⏱ ${fmtH(t.est)}</span>`);
+  if(t.due != null) bits.push(`<span class="chip due">Due ${DAYS[t.due]}</span>`);
+  const pri = PRIS.find(p=>p.id===t.pri);
+  bits.push(`<span class="pri-tag"><span class="pri-dot pri-${t.pri}"></span>${pri.label}</span>`);
+  return bits.join('');
+}
+
+function makeCard(t){
+  const el = document.createElement('div');
+  const isChunk = !!t.parent;
+
+  if(!t.verified){
+    el.className = 'card unverified';
+    el.innerHTML = `
+      ${isChunk ? `<div class="chunk-part">Part ${t.part}</div>` : ''}
+      <div class="card-top">
+        <div style="flex:1">
+          <div class="card-name">${t.name}</div>
+          <div class="card-src">${t.src}</div>
+        </div>
+      </div>
+      <div class="setup-cue">🔓 Click to verify estimate &amp; priority</div>`;
+    el.addEventListener('click', ()=>openTaskModal(t.id));
+    return el;
+  }
+
+  el.className = 'card draggable' + (t.scheduled ? ' scheduled-away' : '');
+  el.draggable = !t.scheduled;
+  el.innerHTML = `
+    ${isChunk ? `<div class="chunk-part">Part ${t.part}</div>` : ''}
+    <div class="card-top">
+      <span class="grip">⋮⋮</span>
+      <div style="flex:1">
+        <div class="card-name">${t.name}</div>
+        <div class="card-src">${t.src}</div>
+      </div>
+    </div>
+    <div class="card-meta">${chipHTML(t)}</div>
+    ${t.scheduled ? `<div class="placed-note">✓ On the board — ${DAYS[t.scheduled.d]} ${BLOCKS.find(b=>b.id===t.scheduled.b).label.toLowerCase()}</div>` : ''}
+    <button class="edit-btn" title="Edit estimate / priority">✎</button>`;
+  el.querySelector('.edit-btn').addEventListener('click', e=>{ e.stopPropagation(); openTaskModal(t.id); });
+  if(!t.scheduled){
+    el.addEventListener('dragstart', e=>startDrag(e, t.id, el));
+    el.addEventListener('dragend', ()=>endDrag(el));
+  }
+  return el;
+}
+
+function makeProjectCard(p){
+  const wrap = document.createElement('div');
+  const chunks = p.chunks.map(id=>task(id));
+  const done = chunks.filter(c=>c.scheduled).length;
+
+  const el = document.createElement('div');
+  el.className = 'card project' + (p.expanded ? ' expanded' : '');
+  el.innerHTML = `
+    <div class="project-tag">🐘 Major project
+      <span class="project-toggle"><span class="chev">▶</span> ${p.expanded ? 'Collapse' : `${chunks.length} chunks`}</span>
+    </div>
+    <div class="card-name">${p.name}</div>
+    <div class="card-src">${p.src}</div>
+    <div class="card-meta">${chipHTML(p)}</div>
+    <div class="project-progress">${done}/${chunks.length} chunks on the board</div>
+    <div class="project-bar"><i style="width:${(done/chunks.length)*100}%"></i></div>`;
+  el.addEventListener('click', ()=>{ p.expanded = !p.expanded; render(); });
+  wrap.appendChild(el);
+
+  if(p.expanded){
+    const list = document.createElement('div');
+    list.className = 'chunk-list';
+    chunks.forEach(c=>list.appendChild(makeCard(c)));
+    wrap.appendChild(list);
+  }
+  return wrap;
+}
+
+function renderBacklog(){
+  const root = $('#backlog');
+  root.innerHTML = '';
+
+  const remaining = state.tasks.filter(t=>!t.isProject && !t.scheduled).length;
+  $('#backlogCount').textContent = `${remaining} unscheduled`;
+
+  const sec = (label)=>{
+    const s = document.createElement('div');
+    s.className = 'section-label';
+    s.textContent = label;
+    root.appendChild(s);
+  };
+
+  sec('Coursework');
+  state.tasks.filter(t=>t.cat==='coursework' && !t.parent && !t.isProject)
+    .forEach(t=>root.appendChild(makeCard(t)));
+
+  sec('Internship & Projects');
+  state.tasks.filter(t=>t.isProject).forEach(p=>root.appendChild(makeProjectCard(p)));
+
+  sec('Independent Study');
+  const sp = document.createElement('div');
+  sp.className = 'spawner';
+  sp.innerHTML = `
+    <p><b>Deep Work blocks:</b> reserve protected review &amp; study time to hit your 2–3h-per-class-hour quota.</p>
+    <div class="spawn-row">
+      <button class="spawn-btn" data-h="1">+ 1h block</button>
+      <button class="spawn-btn" data-h="1.5">+ 1.5h block</button>
+      <button class="spawn-btn" data-h="2">+ 2h block</button>
+    </div>`;
+  sp.querySelectorAll('.spawn-btn').forEach(b=>{
+    b.addEventListener('click', ()=>spawnStudyBlock(parseFloat(b.dataset.h)));
+  });
+  root.appendChild(sp);
+  state.tasks.filter(t=>t.cat==='study' && !t.scheduled)
+    .forEach(t=>root.appendChild(makeCard(t)));
+}
+
+function spawnStudyBlock(hours){
+  state.spawnCount++;
+  state.tasks.push({
+    id:'s'+state.spawnCount,
+    name:`Deep Work: Study Block #${state.spawnCount}`,
+    src:'Independent Study · your protected time',
+    cat:'study', est:hours, sug:hours, pri:'med', due:null,
+    verified:true, scheduled:null, parent:null, part:null,
+    isProject:false, expanded:false, chunks:null, spawned:true,
+  });
+  toast(`Added a ${fmtH(hours)} Deep Work block to your backlog`);
+  render();
+}
+
+function makeSlotItem(t){
+  const el = document.createElement('div');
+  const missed = t.due != null && t.scheduled.d > t.due;
+  el.className = `slot-item ${CATS[t.cat].cls}` + (missed ? ' deadline-miss' : '');
+  el.draggable = true;
+  el.title = `${t.name} — ${fmtH(t.est)}${t.due!=null ? ' · due '+DAYS[t.due] : ''}`;
+  el.innerHTML = `
+    <span class="pri-dot pri-${t.pri}"></span>
+    <span class="si-name">${t.name}</span>
+    ${missed ? '<span class="miss-flag" title="Scheduled past its deadline">⏰</span>' : ''}
+    <span class="si-est">${fmtH(t.est)}</span>
+    <button class="si-x" title="Send back to backlog">×</button>`;
+  el.querySelector('.si-x').addEventListener('click', e=>{
+    e.stopPropagation();
+    t.scheduled = null;
+    toast(`“${t.name}” moved back to the backlog`);
+    render();
+  });
+  el.addEventListener('dragstart', e=>startDrag(e, t.id, el));
+  el.addEventListener('dragend', ()=>endDrag(el));
+  return el;
+}
+
+function renderGrid(){
+  const grid = $('#weekGrid');
+  grid.innerHTML = '';
+  const alerts = computeAlerts();
+
+  // Header row
+  grid.appendChild(document.createElement('div')); // corner spacer
+  for(let d=0; d<7; d++){
+    const load = dayLoad(d);
+    const burn = load.total > DAY_BURNOUT_HOURS;
+    const head = document.createElement('div');
+    head.className = 'day-head' + (d>=5?' weekend':'') + (burn?' burnout':'');
+    const loadCls = burn ? 'burn' : (load.total > DAY_BURNOUT_HOURS-2 ? 'hot' : '');
+    head.innerHTML = `
+      <div class="d-name">${DAYS[d]}</div>
+      <div class="d-load ${loadCls}">${burn?'🔥 ':''}${fmtH(load.total)} planned</div>`;
+    grid.appendChild(head);
+  }
+
+  // Block rows
+  for(const b of BLOCKS){
+    const lbl = document.createElement('div');
+    lbl.className = 'row-label';
+    lbl.innerHTML = `<div class="r-name">${b.label}</div><div class="r-time">${b.time}</div>`;
+    grid.appendChild(lbl);
+
+    for(let d=0; d<7; d++){
+      const cell = document.createElement('div');
+      const used = cellTaskHours(d,b.id);
+      const free = cellFreeCap(d,b.id);
+      const over = used > free;
+      cell.className = 'cell' + (d>=5?' weekend':'') + (over?' over-cap':'');
+      cell.dataset.day = d; cell.dataset.block = b.id;
+
+      const body = document.createElement('div');
+      body.className = 'cell-body';
+      classesIn(d,b.id).forEach(c=>{
+        const ce = document.createElement('div');
+        ce.className = 'slot-item class-block';
+        ce.title = `${c.name} — fixed class session`;
+        ce.innerHTML = `<span class="lock">🔒</span><span class="si-name">${c.code} class</span><span class="si-est">${fmtH(c.hours)}</span>`;
+        body.appendChild(ce);
+      });
+      tasksIn(d,b.id).forEach(t=>body.appendChild(makeSlotItem(t)));
+      cell.appendChild(body);
+
+      const foot = document.createElement('div');
+      foot.className = 'cell-foot';
+      const pct = free>0 ? Math.min(100,(used/free)*100) : (used>0?100:0);
+      const barCls = over ? 'over' : (used===free && free>0 ? 'full' : '');
+      foot.innerHTML = `
+        <div class="cap-bar"><i class="${barCls}" style="width:${pct}%"></i></div>
+        <span class="cap-txt ${over?'over':''}">${fmtH(used)} / ${fmtH(free)}</span>`;
+      cell.appendChild(foot);
+
+      // Drop zone behavior
+      cell.addEventListener('dragover', e=>{ e.preventDefault(); cell.classList.add('drag-over'); });
+      cell.addEventListener('dragleave', ()=>cell.classList.remove('drag-over'));
+      cell.addEventListener('drop', e=>{
+        e.preventDefault();
+        cell.classList.remove('drag-over');
+        dropOnCell(e, d, b.id);
+      });
+      grid.appendChild(cell);
+    }
+  }
+}
+
+function renderAlerts(){
+  const strip = $('#alertStrip');
+  strip.innerHTML = '';
+  computeAlerts().slice(0,4).forEach(a=>{
+    const el = document.createElement('div');
+    el.className = `alert ${a.sev}`;
+    el.innerHTML = `<span class="ico">${a.ico}</span><span>${a.text}</span>`;
+    strip.appendChild(el);
+  });
+}
+
+/* ---------- Drag & drop ---------- */
+let dragId = null;
+
+function startDrag(e, id, el){
+  dragId = id;
+  e.dataTransfer.setData('text/plain', id);
+  e.dataTransfer.effectAllowed = 'move';
+  requestAnimationFrame(()=>el.classList.add('dragging'));
+}
+function endDrag(el){
+  el.classList.remove('dragging');
+  dragId = null;
+}
+function draggedTask(e){
+  const id = e.dataTransfer.getData('text/plain') || dragId;
+  return id ? task(id) : null;
+}
+
+function dropOnCell(e, day, block){
+  const t = draggedTask(e);
+  if(!t || t.isProject || !t.verified) return;
+  const wasFree = cellFreeCap(day, block) - cellTaskHours(day, block);
+  t.scheduled = {d:day, b:block};
+  if(t.est > wasFree){
+    toast(`⚠️ That block is now over capacity — check the red glow`);
+  }
+  render();
+}
+
+// Dragging back onto the backlog tray unschedules
+const backlogEl = document.getElementById('backlog');
+backlogEl.addEventListener('dragover', e=>{ e.preventDefault(); backlogEl.classList.add('drag-over'); });
+backlogEl.addEventListener('dragleave', ()=>backlogEl.classList.remove('drag-over'));
+backlogEl.addEventListener('drop', e=>{
+  e.preventDefault();
+  backlogEl.classList.remove('drag-over');
+  const t = draggedTask(e);
+  if(t && t.scheduled){ t.scheduled = null; render(); }
+});
+
+/* ---------- Task setup modal ---------- */
+let modalTaskId = null, modalEst = null, modalPri = null;
+
+function openTaskModal(id){
+  const t = task(id);
+  modalTaskId = id; modalEst = t.est; modalPri = t.pri;
+
+  $('#tmName').textContent = (t.parent ? `Part ${t.part}: ` : '') + t.name;
+  $('#tmSub').textContent = t.verified
+    ? 'Adjust your estimate or priority. Plans are drafts — updating them is the skill.'
+    : 'Verify this task before it can be scheduled. Pull the estimate from your paper brain-dump exercise — then be honest with yourself.';
+  $('#tmCat').innerHTML = `<span class="chip ${CATS[t.cat].cls}">${CATS[t.cat].label}</span><span class="chip est">${t.src}</span>`;
+  $('#tmDue').innerHTML = t.due != null
+    ? `<span class="chip due">📌 Due ${DAYS[t.due]} — hard deadline</span>`
+    : `<span class="chip est">No hard deadline — flexible</span>`;
+  $('#tmEstHint').textContent = t.sug != null
+    ? `Your analog worksheet suggested ${fmtH(t.sug)}. Planning fallacy is real — most people underestimate by ~40%.`
+    : '';
+
+  const estWrap = $('#tmEst');
+  estWrap.innerHTML = '';
+  EST_OPTIONS.forEach(h=>{
+    const b = document.createElement('button');
+    b.textContent = h===0.5 ? '30 min' : (h + (h===1?' hour':' hours'));
+    if(h===modalEst) b.classList.add('sel');
+    b.addEventListener('click', ()=>{
+      modalEst = h;
+      estWrap.querySelectorAll('button').forEach(x=>x.classList.remove('sel'));
+      b.classList.add('sel');
+    });
+    estWrap.appendChild(b);
+  });
+
+  const priWrap = $('#tmPri');
+  priWrap.innerHTML = '';
+  PRIS.forEach(p=>{
+    const b = document.createElement('button');
+    b.textContent = p.label;
+    if(p.id===modalPri) b.classList.add('sel', p.cls);
+    b.addEventListener('click', ()=>{
+      modalPri = p.id;
+      priWrap.querySelectorAll('button').forEach(x=>x.classList.remove('sel','pri-h','pri-m','pri-l'));
+      b.classList.add('sel', p.cls);
+    });
+    priWrap.appendChild(b);
+  });
+
+  $('#tmConfirm').innerHTML = t.verified ? 'Save changes' : 'Confirm &amp; unlock ➜';
+  $('#taskOverlay').classList.add('open');
+}
+function closeTaskModal(){ $('#taskOverlay').classList.remove('open'); modalTaskId = null; }
+
+$('#tmCancel').addEventListener('click', closeTaskModal);
+$('#tmConfirm').addEventListener('click', ()=>{
+  const t = task(modalTaskId);
+  if(t){
+    const first = !t.verified;
+    t.est = modalEst; t.pri = modalPri; t.verified = true;
+    toast(first ? `“${t.name}” unlocked — drag it onto the board` : 'Task updated');
+  }
+  closeTaskModal();
+  render();
+});
+$('#taskOverlay').addEventListener('click', e=>{ if(e.target === $('#taskOverlay')) closeTaskModal(); });
+
+/* ---------- Check My Week report ---------- */
+function buildReport(){
+  const items = [];
+  const push = (sev, ico, title, detail)=>items.push({sev, ico, title, detail});
+
+  // 1) Study quota
+  const q = quotaHours();
+  if(q >= QUOTA_MIN && q <= QUOTA_MAX){
+    push('ok','📚','Independent study quota: hit', `${fmtH(q)} of coursework + deep work against ${fmtH(CLASS_HOURS)} class hours — inside the ${fmtH(QUOTA_MIN)}–${fmtH(QUOTA_MAX)} standard.`);
+  } else if(q < QUOTA_MIN){
+    push('bad','📚','Independent study quota: short', `Only ${fmtH(q)} blocked of the ${fmtH(QUOTA_MIN)} minimum. In an accelerated program, the syllabus won't wait — add Deep Work blocks.`);
+  } else {
+    push('warn','📚','Independent study quota: overshot', `${fmtH(q)} is beyond the ${fmtH(QUOTA_MAX)} target. Sustainable beats heroic — protect recovery time too.`);
+  }
+
+  // 2) Unverified tasks
+  const unverified = state.tasks.filter(t=>!t.isProject && !t.verified);
+  if(unverified.length === 0){
+    push('ok','🔓','Backlog fully verified', 'Every task has a confirmed estimate and priority. That is the habit.');
+  } else {
+    push('warn','🔒','Unverified tasks in the tray', `${unverified.length} task${unverified.length>1?'s':''} still locked — you can't schedule what you haven't sized.`);
+  }
+
+  // 3) Unscheduled tasks (verified but off the board)
+  const unsched = state.tasks.filter(t=>!t.isProject && t.verified && !t.scheduled);
+  const unschedHigh = unsched.filter(t=>t.pri==='high');
+  if(unsched.length === 0 && unverified.length === 0){
+    push('ok','🗓','Everything is on the board', 'Full backlog scheduled. Nothing left floating in your head.');
+  } else if(unschedHigh.length > 0){
+    push('bad','🗓','High-priority work left unscheduled', `${unschedHigh.map(t=>`“${t.name}”`).join(', ')} ${unschedHigh.length>1?'are':'is'} verified but not on the calendar. Unscheduled priorities are just wishes.`);
+  } else if(unsched.length > 0){
+    push('warn','🗓','Tasks still in the tray', `${unsched.length} verified task${unsched.length>1?'s':''} not yet placed on the board.`);
+  }
+
+  // 4) Deadlines
+  const misses = scheduledTasks().filter(t=>t.due!=null && t.scheduled.d > t.due);
+  if(misses.length === 0){
+    push('ok','⏰','All hard deadlines respected', 'Every scheduled task lands on or before its due day.');
+  } else {
+    push('bad','⏰','Deadline conflicts', misses.map(t=>`“${t.name}” sits on ${DAYS[t.scheduled.d]} but is due ${DAYS[t.due]}`).join('; ') + '.');
+  }
+
+  // 5) Capacity / burnout
+  const overCells = [];
+  for(let d=0;d<7;d++) for(const b of BLOCKS)
+    if(cellTaskHours(d,b.id) > cellFreeCap(d,b.id)) overCells.push(`${DAYS[d]} ${b.label.toLowerCase()}`);
+  const burnDays = DAYS.filter((_,d)=>dayLoad(d).total > DAY_BURNOUT_HOURS);
+  if(overCells.length===0 && burnDays.length===0){
+    push('ok','🧯','Workload within capacity', 'No block is overstuffed and no day crosses the burnout line.');
+  } else {
+    const bits = [];
+    if(overCells.length) bits.push(`over-capacity blocks: ${overCells.join(', ')}`);
+    if(burnDays.length) bits.push(`burnout-risk days (>${DAY_BURNOUT_HOURS}h): ${burnDays.join(', ')}`);
+    push('bad','🧯','Overload detected', bits.join(' · ') + '. Realistic capacity is a feature, not a limitation.');
+  }
+
+  // 6) Chunk sequencing
+  let seqOK = true, anyChunks = false;
+  for(const p of state.tasks.filter(t=>t.isProject)){
+    const placed = p.chunks.map(id=>task(id)).filter(c=>c.scheduled);
+    if(placed.length) anyChunks = true;
+    const sorted = [...placed].sort((a,b)=>a.part-b.part);
+    for(let i=1;i<sorted.length;i++){
+      if(slotIndex(sorted[i].scheduled) < slotIndex(sorted[i-1].scheduled)) seqOK = false;
+    }
+  }
+  if(anyChunks && seqOK){
+    push('ok','🐘','Elephant properly deconstructed', 'Project chunks are distributed in working order — research before outline, draft before polish.');
+  } else if(anyChunks){
+    push('warn','🐘','Chunks out of sequence', 'Some project parts are scheduled before the parts they depend on. Reorder them so each day builds on the last.');
+  }
+
+  const bads = items.filter(i=>i.sev==='bad').length;
+  const warns = items.filter(i=>i.sev==='warn').length;
+  let verdict;
+  if(bads===0 && warns===0) verdict = {e:'🏆', t:'Founder-grade week', s:'Quota hit, deadlines beaten, capacity respected. This is what a plan you can actually execute looks like.'};
+  else if(bads===0)          verdict = {e:'🚀', t:'Strong plan — minor tuning left', s:'The structure is solid. Clear the yellow flags and this week runs itself.'};
+  else if(bads<=2)           verdict = {e:'🛠', t:'Workable draft — fix the red flags', s:'Good bones, but the red items will hurt on Thursday. Adjust and re-check.'};
+  else                       verdict = {e:'🔥', t:'This week will eat you alive', s:'Right now the plan runs on hope. Move things around and check again — that is exactly what this lab is for.'};
+
+  return {items, verdict};
+}
+
+$('#btnCheck').addEventListener('click', ()=>{
+  const {items, verdict} = buildReport();
+  $('#reportBody').innerHTML = items.map(i=>`
+    <div class="report-item ${i.sev}">
+      <span class="r-ico">${i.ico}</span>
+      <div><b>${i.title}</b><span>${i.detail}</span></div>
+    </div>`).join('');
+  $('#reportVerdict').innerHTML = `
+    <div class="v-emoji">${verdict.e}</div>
+    <div class="v-title">${verdict.t}</div>
+    <div class="v-sub">${verdict.s}</div>`;
+  $('#reportOverlay').classList.add('open');
+});
+$('#reportClose').addEventListener('click', ()=>$('#reportOverlay').classList.remove('open'));
+$('#reportOverlay').addEventListener('click', e=>{ if(e.target === $('#reportOverlay')) $('#reportOverlay').classList.remove('open'); });
+
+/* ---------- Intro / help / reset ---------- */
+$('#introClose').addEventListener('click', ()=>{
+  state.introSeen = true;
+  $('#introOverlay').classList.remove('open');
+  save();
+});
+$('#btnHelp').addEventListener('click', ()=>$('#introOverlay').classList.add('open'));
+$('#introOverlay').addEventListener('click', e=>{
+  if(e.target === $('#introOverlay')){ state.introSeen = true; $('#introOverlay').classList.remove('open'); save(); }
+});
+$('#btnReset').addEventListener('click', ()=>{
+  if(confirm('Reset the simulation? Your whole week plan will be cleared.')){
+    localStorage.removeItem(STORAGE_KEY);
+    state = defaultState();
+    state.introSeen = true;
+    render();
+    toast('Fresh week — plan it again');
+  }
+});
+
+/* ---------- Toast ---------- */
+let toastTimer = null;
+function toast(msg){
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 2600);
+}
+
+/* ---------- Boot ---------- */
+state = load() || defaultState();
+if(!state.introSeen) $('#introOverlay').classList.add('open');
+render();
+</script>
+</body>
+</html>
