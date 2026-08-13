@@ -1,9 +1,11 @@
 # Golisano Productivity Lab — Time-Blocking Simulation
 
 An interactive, single-file web app that gives incoming students at the Golisano
-Institute for Business & Entrepreneurship a hands-on orientation in realistic
-weekly planning: brain-dump verification, honest time estimation, independent
-study quotas, project chunking, and drag-and-drop time blocking.
+Institute for Business & Entrepreneurship a hands-on orientation in the full
+productivity workflow: inbox triage, brain-dump verification, honest time
+estimation, independent study quotas, project chunking, and drag-and-drop
+time blocking — with an Orientation Points system that rewards the habits,
+not the clicks.
 
 ## Run it
 
@@ -11,29 +13,55 @@ Open `index.html` in any modern browser — no build step, no server, no externa
 dependencies. All CSS and JavaScript are embedded, so the file can be uploaded
 as-is to Canvas LMS (Files → embed in a page via iframe) or hosted anywhere.
 
-Progress is saved to the browser's `localStorage`; the **Reset** button starts a
-fresh week.
+Progress is saved to the browser's `localStorage`. The **Reset** button starts a
+fresh week but keeps earned Orientation Points and badges (achievements are
+one-time and can't be farmed by replaying).
 
 ## How the simulation works
 
-1. **Verify the backlog.** Pre-loaded coursework (ENT-101, ACC-110, COM-105) and
-   internship deliverables start *locked*. Clicking a task opens a setup panel
-   where the student confirms an estimated completion time, a priority level,
-   and sees its hard deadline — only then does it become draggable.
-2. **Deconstruct the elephant.** Major projects (Market Research Deck, Social
-   Media Audit) can't be dropped onto a single day. Expanding the project card
-   reveals sequential chunks (Research → Outline → Draft → Polish) that are
-   scheduled individually — and the app warns when chunks are placed out of order.
-3. **Drag & drop the week.** A Mon–Sun grid with Morning / Afternoon / Evening
-   blocks, with fixed class sessions already locked in. Tasks move from the
-   backlog into blocks, between blocks, or back to the tray.
-4. **Guardrails give live feedback.**
-   - **Independent Study Quota meter** — tracks coursework + deep-work hours
-     against the 2–3 hours-per-class-hour standard (18–27h for the simulated
-     9 class hours), with spawnable "Deep Work" study blocks to fill the gap.
-   - **Overload / burnout alerts** — blocks glow red when over capacity, days
-     flag burnout past 9 planned hours, and high-priority pile-ups and missed
-     deadlines surface as warning banners.
-5. **Check My Week** — a report card grades the plan across quota, verification,
-   scheduling coverage, deadlines, capacity, and chunk sequencing, with a final
-   verdict from 🏆 *Founder-grade week* to 🔥 *This week will eat you alive*.
+### Phase 1 — Inbox (Outlook-style mail client)
+
+1. **Sort your inbox.** Nine mock emails from professors (ENT-101, ACC-110,
+   COM-105) and internship supervisors arrive unsorted. The student creates
+   four topic folders — one per class, one for the internship — and drags each
+   email into the folder it belongs in. Misfiled email is accepted but flagged,
+   and can't be processed until it's re-filed correctly.
+2. **Extract the tasks.** Inside each folder, the student opens every email and
+   makes a judgment call: *is someone asking me to do something, or is this
+   just context?* Real asks become tasks in the Braindump (major projects
+   arrive pre-chunked); FYI emails get archived. Wrong calls get coaching
+   feedback and count against the Sharp Eye badge.
+
+### Phase 2 — Weekly Planner
+
+3. **Verify the Braindump.** Extracted tasks start *locked*. Clicking one opens
+   a setup panel where the student confirms an estimated completion time (the
+   emails say what's expected), a priority level, and sees its hard deadline.
+4. **Deconstruct the elephant.** Projects (Market Research Deck, Social Media
+   Audit) expand into sequential chunks (Research → Outline → Draft → Polish)
+   scheduled individually — with warnings when chunks are placed out of order.
+5. **Drag & drop the week.** A Mon–Sun grid with Morning / Afternoon / Evening
+   blocks and fixed class sessions locked in. Guardrails give live feedback:
+   - **Independent Study Quota meter** — coursework + deep-work hours against
+     the 2–3 hours-per-class-hour standard (18–27h), with spawnable Deep Work
+     blocks.
+   - **Overload / burnout alerts** — red-glow over-capacity blocks, burnout
+     days past 9 planned hours, high-priority pile-ups, deadline misses.
+6. **Check My Week** — a report card grades the plan across inbox hygiene,
+   quota, verification, scheduling coverage, deadlines, capacity, and chunk
+   sequencing, with verdicts from 🏆 *Founder-grade week* to 🔥 *This week will
+   eat you alive*.
+
+## Orientation Points (⭐ OP)
+
+Fourteen one-time achievements (175 OP total) reward mastery behaviors across
+both phases — Inbox Zero, First-Try Filer, Sharp Eye, Elephant Tamer,
+Sustainable Scheduler, Spaced Not Crammed, and more. A **Comeback** badge pays
+for improving your verdict between reviews, so re-planning is scoring, not
+failing. Tiers (Bronze 60 / Silver 110 / Gold 160) track toward the
+end-of-orientation award, and the awards panel generates a **completion code**
+(a checksum of earned badges) that students submit in Canvas so staff can tally
+the cohort.
+
+Anti-gaming by design: achievements never re-award, spamming Check My Week does
+nothing, and spawning/deleting study blocks earns nothing on its own.
