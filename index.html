@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Golisano Productivity Lab — Time Blocking Simulation</title>
+<style>
+  /* ============ Design tokens ============ */
+  :root{
+    --bg:#0b1220;
+    --panel:#111a2e;
+    --panel-2:#16213a;
+    --panel-3:#1c2a47;
+    --line:#24334f;
+    --line-soft:#1c2942;
+    --text:#e6ecf8;
+    --text-dim:#8ea0c0;
+    --text-faint:#5f7195;
+    --accent:#6366f1;
+    --accent-2:#8b5cf6;
+    --good:#34d399;
+    --warn:#fbbf24;
+    --bad:#f43f5e;
+    --gold:#fbbf24;
+    --sky:#38bdf8;
+    --amber:#f59e0b;
+    --emerald:#34d399;
+    --violet:#a78bfa;
+    --pink:#f472b6;
+    --radius:12px;
+    --shadow:0 10px 30px rgba(2,6,17,.45);
+    font-size:15px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:
+      radial-gradient(1100px 500px at 85% -10%, rgba(99,102,241,.14), transparent 60%),
+      radial-gradient(900px 420px at -10% 110%, rgba(139,92,246,.10), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+    overflow:auto;
+  }
+
+  /* ============ App frame ============ */
+  #app{display:flex;flex-direction:column;height:100vh;min-width:1080px}
+
+  header.topbar{
+    display:flex;align-items:center;gap:14px;
+    padding:12px 22px;
+    border-bottom:1px solid var(--line-soft);
+    background:rgba(13,20,36,.85);
+    backdrop-filter:blur(8px);
+    z-index:20;
+  }
+  .logo{
+    width:38px;height:38px;border-radius:10px;flex:none;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:grid;place-items:center;font-weight:800;font-size:17px;color:white;
+    box-shadow:0 4px 14px rgba(99,102,241,.4);
+  }
+  .title-wrap h1{font-size:16px;font-weight:700;letter-spacing:.2px}
+  .title-wrap p{font-size:11.5px;color:var(--text-dim)}
+  .topbar-spacer{flex:1}
+  .btn{
+    border:1px solid var(--line);
+    background:var(--panel-2);
+    color:var(--text);
+    font:inherit;font-size:13px;font-weight:600;
+    padding:9px 16px;border-radius:10px;cursor:pointer;
+    transition:transform .12s ease, background .12s ease, border-color .12s ease, color .12s;
+  }
+  .btn:hover{background:var(--panel-3);border-color:#31446b;transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+  .btn-primary{
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    border-color:transparent;color:#fff;
+    box-shadow:0 4px 16px rgba(99,102,241,.35);
+  }
+  .btn-primary:hover{background:linear-gradient(135deg,#6d70f5,#9668f8);filter:brightness(1.06)}
+  .btn-ghost{background:transparent;border-color:transparent;color:var(--text-dim)}
+  .btn-ghost:hover{background:var(--panel-2);color:var(--text)}
+
+  /* View tabs */
+  .tabs{display:flex;gap:3px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:3px}
+  .tab{
+    font:inherit;font-size:13px;font-weight:700;border:none;cursor:pointer;
+    background:transparent;color:var(--text-dim);
+    padding:7px 15px;border-radius:8px;display:flex;align-items:center;gap:7px;
+    transition:background .12s,color .12s;
+  }
+  .tab:hover{color:var(--text)}
+  .tab.active{
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;
+    box-shadow:0 3px 10px rgba(99,102,241,.35);
+  }
+  .t-badge{
+    font-size:10.5px;font-weight:800;min-width:18px;height:18px;padding:0 5px;
+    border-radius:999px;background:rgba(244,63,94,.9);color:#fff;
+    display:inline-grid;place-items:center;
+  }
+  .tab.active .t-badge{background:rgba(255,255,255,.25)}
+
+  /* Orientation Points pill */
+  .op-pill{
+    display:flex;align-items:center;gap:9px;cursor:pointer;
+    border:1px solid rgba(251,191,36,.4);border-radius:999px;
+    background:rgba(251,191,36,.08);padding:7px 14px;
+    transition:background .12s, transform .12s;
+  }
+  .op-pill:hover{background:rgba(251,191,36,.15);transform:translateY(-1px)}
+  .op-pill .op-star{font-size:14px}
+  .op-pill .op-num{font-size:13px;font-weight:800;color:var(--gold)}
+  .op-pill .op-tier{font-size:10.5px;font-weight:700;color:var(--text-dim)}
+  .op-bar{width:64px;height:5px;border-radius:99px;background:var(--panel-3);overflow:hidden}
+  .op-bar i{display:block;height:100%;background:linear-gradient(90deg,#d97706,var(--gold));border-radius:99px;transition:width .4s}
+
+  .view{flex:1;min-height:0}
+  .layout{display:flex;height:100%;min-height:0}
+
+  /* ============ Inbox view (mail client) ============ */
+  #inboxView{display:flex;height:100%;min-height:0}
+  .mail-rail{
+    width:232px;flex:none;border-right:1px solid var(--line-soft);
+    background:rgba(15,23,42,.6);padding:14px 10px;display:flex;flex-direction:column;gap:3px;
+    overflow-y:auto;
+  }
+  .rail-label{
+    font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;
+    color:var(--text-faint);margin:10px 8px 6px;
+  }
+  .rail-item{
+    display:flex;align-items:center;gap:9px;
+    padding:9px 10px;border-radius:9px;cursor:pointer;
+    border:1px solid transparent;
+    font-size:13px;font-weight:600;color:var(--text-dim);
+    transition:background .12s,color .12s,border-color .12s;
+  }
+  .rail-item:hover{background:var(--panel-2);color:var(--text)}
+  .rail-item.active{background:var(--panel-3);color:var(--text);border-color:var(--line)}
+  .rail-item.drag-over{border-color:var(--accent);background:rgba(99,102,241,.12);color:var(--text)}
+  .rail-item .r-ico{font-size:14px;flex:none}
+  .rail-item .r-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rail-count{
+    font-size:10.5px;font-weight:800;min-width:19px;height:19px;padding:0 5px;border-radius:999px;
+    background:var(--panel-3);color:var(--text-dim);display:grid;place-items:center;
+  }
+  .rail-count.hot{background:rgba(244,63,94,.85);color:#fff}
+  .rail-count.done{background:rgba(52,211,153,.18);color:var(--emerald)}
+  .rail-topic{width:8px;height:8px;border-radius:3px;flex:none}
+  .new-folder-btn{
+    margin-top:6px;display:flex;align-items:center;gap:8px;justify-content:center;
+    font:inherit;font-size:12.5px;font-weight:700;
+    border:1px dashed var(--line);border-radius:9px;background:transparent;color:var(--text-dim);
+    padding:9px;cursor:pointer;transition:border-color .12s,color .12s,background .12s;
+  }
+  .new-folder-btn:hover{border-color:var(--accent);color:var(--text);background:rgba(99,102,241,.07)}
+  .rail-tip{
+    margin-top:auto;font-size:11px;color:var(--text-faint);line-height:1.5;padding:10px 8px 2px;
+    border-top:1px solid var(--line-soft);
+  }
+  .rail-tip b{color:var(--text-dim)}
+
+  .mail-list{
+    width:332px;flex:none;border-right:1px solid var(--line-soft);
+    overflow-y:auto;background:rgba(13,20,36,.4);
+  }
+  .list-head{
+    padding:14px 16px 10px;font-size:13px;font-weight:800;
+    border-bottom:1px solid var(--line-soft);
+    display:flex;align-items:baseline;justify-content:space-between;
+    position:sticky;top:0;background:#101a30;z-index:2;
+  }
+  .list-head span{font-size:11px;color:var(--text-faint);font-weight:600}
+  .mail-row{
+    padding:11px 14px 11px 12px;border-bottom:1px solid var(--line-soft);
+    cursor:pointer;display:flex;gap:9px;position:relative;
+    transition:background .12s;border-left:3px solid transparent;
+  }
+  .mail-row:hover{background:var(--panel-2)}
+  .mail-row.sel{background:var(--panel-3);border-left-color:var(--accent)}
+  .mail-row.dragging{opacity:.4}
+  .mail-row .m-col{flex:1;min-width:0}
+  .m-line1{display:flex;align-items:baseline;gap:8px}
+  .m-from{font-size:12.5px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mail-row.read .m-from{font-weight:600;color:var(--text-dim)}
+  .m-time{font-size:10.5px;color:var(--text-faint);flex:none;font-variant-numeric:tabular-nums}
+  .m-subj{font-size:12.5px;font-weight:700;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mail-row.read .m-subj{font-weight:500;color:var(--text-dim)}
+  .m-prev{font-size:11.5px;color:var(--text-faint);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .m-chips{display:flex;gap:5px;margin-top:5px}
+  .unread-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none;margin-top:5px}
+  .mail-row.read .unread-dot{background:transparent}
+  .m-state{
+    font-size:10px;font-weight:800;padding:2px 7px;border-radius:999px;
+  }
+  .m-state.tasks{background:rgba(52,211,153,.15);color:var(--emerald)}
+  .m-state.fyi{background:var(--panel-3);color:var(--text-dim)}
+  .m-state.todo{background:rgba(251,191,36,.13);color:var(--warn)}
+  .list-empty{padding:34px 20px;text-align:center;font-size:12.5px;color:var(--text-faint);line-height:1.6}
+
+  .reading{flex:1;min-width:0;overflow-y:auto;padding:26px 32px}
+  .reading-empty{
+    height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:var(--text-faint);font-size:13px;gap:10px;text-align:center;line-height:1.6;
+  }
+  .reading-empty .re-ico{font-size:38px;opacity:.5}
+  .read-card{max-width:680px}
+  .read-subj{font-size:20px;font-weight:800;line-height:1.3;text-wrap:balance}
+  .read-meta{
+    display:flex;align-items:center;gap:11px;margin:14px 0 18px;
+    padding-bottom:16px;border-bottom:1px solid var(--line-soft);
+  }
+  .avatar{
+    width:38px;height:38px;border-radius:50%;flex:none;
+    display:grid;place-items:center;font-size:13px;font-weight:800;color:#fff;
+  }
+  .read-meta .rm-name{font-size:13px;font-weight:700}
+  .read-meta .rm-addr{font-size:11.5px;color:var(--text-faint)}
+  .read-meta .rm-time{margin-left:auto;font-size:11.5px;color:var(--text-faint)}
+  .read-body{font-size:13.5px;line-height:1.7;color:#c9d4ea;max-width:62ch}
+  .read-body p{margin-bottom:13px}
+  .read-body b{color:var(--text)}
+  .action-box{
+    margin-top:22px;padding:16px;border-radius:14px;
+    border:1px solid var(--line);background:var(--panel-2);
+  }
+  .action-box .ab-title{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text-dim);margin-bottom:5px}
+  .action-box .ab-sub{font-size:12px;color:var(--text-faint);line-height:1.5;margin-bottom:12px}
+  .ab-row{display:flex;gap:9px;flex-wrap:wrap}
+  .action-box.warn-box{border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.06)}
+  .action-box.warn-box .ab-title{color:var(--warn)}
+  .action-box.done-box{border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.06)}
+  .action-box.done-box .ab-title{color:var(--emerald)}
+  .extracted-list{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+  .extracted-list .ex-item{
+    font-size:12px;color:var(--text-dim);display:flex;gap:8px;align-items:center;
+  }
+
+  /* ============ Planner (sidebar + grid) ============ */
+  aside.sidebar{
+    width:390px;flex:none;display:flex;flex-direction:column;min-height:0;
+    background:rgba(15,23,42,.6);
+    border-right:1px solid var(--line-soft);
+  }
+  .meters{padding:16px 18px 12px;border-bottom:1px solid var(--line-soft)}
+  .meter-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .meter-head .label{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-dim)}
+  .meter-head .value{font-size:12px;font-weight:700}
+  .quota-track{
+    position:relative;height:14px;border-radius:999px;background:var(--panel-2);
+    border:1px solid var(--line);overflow:visible;
+  }
+  .quota-fill{
+    height:100%;border-radius:999px;width:0%;
+    background:linear-gradient(90deg,#4f46e5,#8b5cf6);
+    transition:width .35s cubic-bezier(.4,0,.2,1), background .3s;
+    min-width:0;
+  }
+  .quota-fill.good{background:linear-gradient(90deg,#059669,#34d399)}
+  .quota-fill.over{background:linear-gradient(90deg,#d97706,#fbbf24)}
+  .quota-marker{
+    position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--text-faint);border-radius:2px;
+  }
+  .quota-marker::after{
+    content:attr(data-label);position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    font-size:9.5px;color:var(--text-faint);padding-top:3px;white-space:nowrap;
+  }
+  .quota-note{margin-top:18px;font-size:11.5px;color:var(--text-dim);line-height:1.45}
+  .quota-note b{color:var(--text)}
+
+  .backlog-head{
+    padding:14px 18px 8px;display:flex;align-items:baseline;justify-content:space-between;
+  }
+  .backlog-head h2{font-size:13px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-dim)}
+  .backlog-head .count{font-size:11.5px;color:var(--text-faint)}
+  .backlog{
+    flex:1;overflow-y:auto;padding:4px 18px 18px;min-height:0;
+  }
+  .backlog.drag-over{outline:2px dashed var(--accent);outline-offset:-6px;border-radius:12px;background:rgba(99,102,241,.06)}
+  .backlog::-webkit-scrollbar,.grid-scroll::-webkit-scrollbar,.mail-list::-webkit-scrollbar,.reading::-webkit-scrollbar{width:9px;height:9px}
+  .backlog::-webkit-scrollbar-thumb,.grid-scroll::-webkit-scrollbar-thumb,.mail-list::-webkit-scrollbar-thumb,.reading::-webkit-scrollbar-thumb{background:#26355a;border-radius:8px}
+  .backlog::-webkit-scrollbar-track,.grid-scroll::-webkit-scrollbar-track,.mail-list::-webkit-scrollbar-track,.reading::-webkit-scrollbar-track{background:transparent}
+
+  .empty-braindump{
+    border:1px dashed var(--line);border-radius:var(--radius);
+    padding:20px 16px;text-align:center;font-size:12.5px;color:var(--text-dim);line-height:1.6;
+    margin:8px 0;
+  }
+  .empty-braindump .eb-ico{font-size:26px;display:block;margin-bottom:8px}
+
+  .section-label{
+    font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;
+    color:var(--text-faint);margin:16px 2px 8px;display:flex;align-items:center;gap:8px;
+  }
+  .section-label::after{content:"";flex:1;height:1px;background:var(--line-soft)}
+
+  /* Task cards */
+  .card{
+    position:relative;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:10px 12px;
+    margin-bottom:8px;
+    transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease, opacity .2s;
+  }
+  .card.draggable{cursor:grab}
+  .card.draggable:hover{transform:translateY(-1px);border-color:#32456e;box-shadow:0 6px 18px rgba(2,6,17,.4)}
+  .card.dragging{opacity:.35;transform:scale(.98)}
+  .card.unverified{
+    border-style:dashed;border-color:#3b4d75;background:rgba(22,33,58,.5);cursor:pointer;
+  }
+  .card.unverified:hover{border-color:var(--accent);background:rgba(99,102,241,.08)}
+  .card-top{display:flex;align-items:flex-start;gap:8px}
+  .grip{color:var(--text-faint);font-size:13px;line-height:1.5;flex:none;letter-spacing:-1px}
+  .card-name{font-size:13px;font-weight:600;line-height:1.35;flex:1}
+  .card-src{font-size:11px;color:var(--text-dim);margin-top:1px}
+  .card-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;align-items:center}
+  .chip{
+    font-size:10.5px;font-weight:700;padding:2.5px 8px;border-radius:999px;
+    border:1px solid transparent;letter-spacing:.2px;
+  }
+  .chip.cat-coursework{background:rgba(56,189,248,.13);color:var(--sky);border-color:rgba(56,189,248,.3)}
+  .chip.cat-internship{background:rgba(245,158,11,.13);color:var(--amber);border-color:rgba(245,158,11,.3)}
+  .chip.cat-study{background:rgba(52,211,153,.13);color:var(--emerald);border-color:rgba(52,211,153,.3)}
+  .chip.est{background:var(--panel-3);color:var(--text-dim);border-color:var(--line)}
+  .chip.due{background:rgba(244,114,182,.1);color:var(--pink);border-color:rgba(244,114,182,.28)}
+  .pri-dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+  .pri-high{background:var(--bad);box-shadow:0 0 8px rgba(244,63,94,.7)}
+  .pri-med{background:var(--warn)}
+  .pri-low{background:#64748b}
+  .pri-tag{font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;gap:5px;color:var(--text-dim)}
+  .setup-cue{
+    font-size:11px;font-weight:700;color:var(--accent);
+    display:inline-flex;align-items:center;gap:5px;margin-top:8px;
+  }
+  .card .edit-btn{
+    position:absolute;top:8px;right:8px;
+    border:none;background:transparent;color:var(--text-faint);cursor:pointer;
+    font-size:12px;padding:3px 5px;border-radius:6px;opacity:0;transition:opacity .12s;
+  }
+  .card:hover .edit-btn{opacity:1}
+  .card .edit-btn:hover{background:var(--panel-3);color:var(--text)}
+
+  /* Project cards */
+  .card.project{background:linear-gradient(180deg,rgba(139,92,246,.10),rgba(22,33,58,.6));border-color:rgba(139,92,246,.35);cursor:pointer}
+  .card.project:hover{border-color:var(--violet)}
+  .project-tag{
+    font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
+    color:var(--violet);display:flex;align-items:center;gap:6px;margin-bottom:5px;
+    white-space:nowrap;
+  }
+  .project-toggle{margin-left:auto;color:var(--text-dim);font-size:11px;font-weight:600;transition:transform .2s}
+  .project.expanded .project-toggle .chev{display:inline-block;transform:rotate(90deg)}
+  .chev{display:inline-block;transition:transform .2s;font-size:10px}
+  .project-progress{font-size:11px;color:var(--text-dim);margin-top:7px}
+  .project-bar{height:4px;border-radius:99px;background:var(--panel-3);margin-top:5px;overflow:hidden}
+  .project-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent-2),var(--violet));border-radius:99px;transition:width .3s}
+  .chunk-list{margin:2px 0 10px 14px;padding-left:10px;border-left:2px solid rgba(139,92,246,.3)}
+  .chunk-list .card{margin-bottom:6px;padding:8px 10px}
+  .chunk-part{
+    font-size:9.5px;font-weight:800;letter-spacing:.6px;color:var(--violet);
+    text-transform:uppercase;margin-bottom:2px;
+  }
+  .card.scheduled-away{opacity:.42}
+  .card.scheduled-away .card-name{text-decoration:line-through;text-decoration-color:var(--text-faint)}
+  .placed-note{font-size:10.5px;color:var(--emerald);font-weight:700;margin-top:6px}
+
+  /* Study block spawner */
+  .spawner{
+    border:1px dashed var(--line);border-radius:var(--radius);
+    padding:12px;margin-bottom:8px;background:rgba(52,211,153,.04);
+  }
+  .spawner p{font-size:11.5px;color:var(--text-dim);line-height:1.4;margin-bottom:9px}
+  .spawner p b{color:var(--emerald)}
+  .spawn-row{display:flex;gap:6px}
+  .spawn-btn{
+    flex:1;font:inherit;font-size:12px;font-weight:700;
+    border:1px solid rgba(52,211,153,.35);background:rgba(52,211,153,.1);color:var(--emerald);
+    border-radius:8px;padding:7px 0;cursor:pointer;transition:background .12s,transform .12s;
+  }
+  .spawn-btn:hover{background:rgba(52,211,153,.2);transform:translateY(-1px)}
+
+  main.board{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+  .board-head{
+    padding:14px 22px 10px;display:flex;align-items:center;gap:14px;flex:none;
+  }
+  .board-head h2{font-size:15px;font-weight:700}
+  .board-head .sub{font-size:12px;color:var(--text-dim)}
+
+  .alert-strip{
+    padding:0 22px;display:flex;flex-direction:column;gap:6px;flex:none;
+  }
+  .alert{
+    display:flex;align-items:center;gap:10px;
+    font-size:12.5px;font-weight:600;
+    border-radius:10px;padding:8px 13px;
+    animation:slideIn .25s ease;
+  }
+  @keyframes slideIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  .alert.bad{background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.4);color:#fda4af}
+  .alert.warn{background:rgba(251,191,36,.09);border:1px solid rgba(251,191,36,.35);color:#fcd34d}
+  .alert .ico{flex:none}
+  .alert.bad .ico{animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+  .grid-scroll{flex:1;overflow:auto;padding:10px 22px 22px;min-height:0}
+  .week-grid{
+    display:grid;
+    grid-template-columns:78px repeat(7,minmax(150px,1fr));
+    gap:8px;min-width:1150px;
+  }
+  .day-head{
+    text-align:center;padding:8px 4px 9px;border-radius:10px;
+    background:var(--panel);border:1px solid var(--line-soft);
+    position:sticky;top:0;z-index:5;
+  }
+  .day-head .d-name{font-size:13px;font-weight:700}
+  .day-head .d-load{font-size:10.5px;color:var(--text-faint);margin-top:2px;font-weight:600}
+  .day-head .d-load.hot{color:var(--warn)}
+  .day-head .d-load.burn{color:var(--bad)}
+  .day-head.weekend .d-name{color:var(--text-dim)}
+  .day-head.burnout{border-color:rgba(244,63,94,.55);box-shadow:0 0 14px rgba(244,63,94,.25)}
+  .row-label{
+    display:flex;flex-direction:column;justify-content:center;align-items:flex-end;
+    padding:8px 10px 8px 0;text-align:right;
+  }
+  .row-label .r-name{font-size:12px;font-weight:700;color:var(--text-dim)}
+  .row-label .r-time{font-size:10px;color:var(--text-faint);margin-top:2px}
+
+  .cell{
+    background:var(--panel);
+    border:1px solid var(--line-soft);
+    border-radius:var(--radius);
+    padding:7px;min-height:104px;
+    display:flex;flex-direction:column;gap:5px;
+    transition:border-color .15s, box-shadow .15s, background .15s;
+  }
+  .cell.weekend{background:rgba(17,26,46,.55)}
+  .cell.drag-over{border-color:var(--accent);background:rgba(99,102,241,.09);box-shadow:inset 0 0 0 1px var(--accent)}
+  .cell.over-cap{
+    border-color:rgba(244,63,94,.65);
+    background:rgba(244,63,94,.06);
+    box-shadow:0 0 16px rgba(244,63,94,.28), inset 0 0 0 1px rgba(244,63,94,.4);
+    animation:glowRed 1.8s infinite;
+  }
+  @keyframes glowRed{
+    0%,100%{box-shadow:0 0 16px rgba(244,63,94,.28), inset 0 0 0 1px rgba(244,63,94,.4)}
+    50%{box-shadow:0 0 24px rgba(244,63,94,.5), inset 0 0 0 1px rgba(244,63,94,.6)}
+  }
+  .cell-body{display:flex;flex-direction:column;gap:5px;flex:1}
+  .cell-foot{display:flex;align-items:center;gap:7px;margin-top:auto;padding-top:3px}
+  .cap-bar{flex:1;height:4px;border-radius:99px;background:var(--panel-3);overflow:hidden}
+  .cap-bar i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .25s,background .25s}
+  .cap-bar i.full{background:var(--warn)}
+  .cap-bar i.over{background:var(--bad)}
+  .cap-txt{font-size:9.5px;color:var(--text-faint);font-weight:700;white-space:nowrap}
+  .cap-txt.over{color:var(--bad)}
+
+  .slot-item{
+    border-radius:9px;padding:6px 8px;font-size:11.5px;line-height:1.3;
+    display:flex;align-items:center;gap:7px;position:relative;
+    border:1px solid var(--line);background:var(--panel-2);
+    cursor:grab;transition:transform .1s, box-shadow .1s;
+  }
+  .slot-item:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(2,6,17,.35)}
+  .slot-item.dragging{opacity:.35}
+  .slot-item .si-name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .slot-item .si-est{font-size:10px;color:var(--text-dim);font-weight:700;flex:none}
+  .slot-item .si-x{
+    border:none;background:transparent;color:var(--text-faint);cursor:pointer;
+    font-size:13px;line-height:1;padding:2px 3px;border-radius:5px;flex:none;
+  }
+  .slot-item .si-x:hover{color:var(--bad);background:rgba(244,63,94,.12)}
+  .slot-item.cat-coursework{border-left:3px solid var(--sky)}
+  .slot-item.cat-internship{border-left:3px solid var(--amber)}
+  .slot-item.cat-study{border-left:3px solid var(--emerald)}
+  .slot-item.deadline-miss{border-color:rgba(244,63,94,.55);background:rgba(244,63,94,.09)}
+  .slot-item .miss-flag{font-size:10px;flex:none}
+  .slot-item.class-block{
+    background:linear-gradient(135deg,rgba(99,102,241,.16),rgba(139,92,246,.12));
+    border:1px solid rgba(99,102,241,.4);border-left:3px solid var(--accent);
+    cursor:default;
+  }
+  .slot-item.class-block:hover{transform:none;box-shadow:none}
+  .slot-item.class-block .si-name{color:#c7d2fe}
+  .lock{font-size:10px;flex:none;opacity:.8}
+
+  /* ============ Modals ============ */
+  .overlay{
+    position:fixed;inset:0;background:rgba(4,8,18,.7);backdrop-filter:blur(4px);
+    display:none;align-items:center;justify-content:center;z-index:50;
+    animation:fadeIn .18s ease;
+  }
+  .overlay.open{display:flex}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .modal{
+    width:min(480px,92vw);max-height:86vh;overflow-y:auto;
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);padding:24px;
+    animation:popIn .2s cubic-bezier(.34,1.4,.64,1);
+  }
+  .modal.wide{width:min(580px,94vw)}
+  @keyframes popIn{from{opacity:0;transform:scale(.96) translateY(6px)}to{opacity:1;transform:none}}
+  .modal h3{font-size:17px;font-weight:800;margin-bottom:4px}
+  .modal .m-sub{font-size:12.5px;color:var(--text-dim);line-height:1.5;margin-bottom:16px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:11px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px}
+  .field .hint{font-size:11px;color:var(--text-faint);margin-top:5px;line-height:1.4}
+  .field input[type=text]{
+    width:100%;font:inherit;font-size:13px;font-weight:600;color:var(--text);
+    background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:9px 12px;
+  }
+  .field input[type=text]:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button{
+    font:inherit;font-size:12.5px;font-weight:700;
+    border:1px solid var(--line);background:var(--panel-2);color:var(--text-dim);
+    padding:8px 14px;border-radius:9px;cursor:pointer;transition:all .12s;
+  }
+  .seg button:hover:not(:disabled){border-color:#33466f;color:var(--text)}
+  .seg button:disabled{opacity:.35;cursor:not-allowed}
+  .seg button.sel{
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    border-color:transparent;color:#fff;box-shadow:0 3px 10px rgba(99,102,241,.35);
+  }
+  .seg button.sel.pri-h{background:linear-gradient(135deg,#e11d48,#f43f5e);box-shadow:0 3px 10px rgba(244,63,94,.35)}
+  .seg button.sel.pri-m{background:linear-gradient(135deg,#d97706,#f59e0b);box-shadow:0 3px 10px rgba(245,158,11,.3)}
+  .seg button.sel.pri-l{background:linear-gradient(135deg,#475569,#64748b);box-shadow:none}
+  .fixed-chip-row{display:flex;gap:6px;flex-wrap:wrap}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+
+  /* Report modal */
+  .report-item{
+    display:flex;gap:11px;align-items:flex-start;
+    padding:11px 13px;border-radius:11px;margin-bottom:8px;
+    border:1px solid var(--line);background:var(--panel-2);
+    font-size:12.5px;line-height:1.5;
+  }
+  .report-item .r-ico{font-size:15px;flex:none;margin-top:1px}
+  .report-item b{display:block;font-size:12.5px;margin-bottom:1px}
+  .report-item span{color:var(--text-dim)}
+  .report-item.ok{border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.06)}
+  .report-item.warn{border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.05)}
+  .report-item.bad{border-color:rgba(244,63,94,.4);background:rgba(244,63,94,.06)}
+  .verdict{text-align:center;padding:18px 12px 6px}
+  .verdict .v-emoji{font-size:34px}
+  .verdict .v-title{font-size:16px;font-weight:800;margin-top:8px}
+  .verdict .v-sub{font-size:12.5px;color:var(--text-dim);margin-top:4px;line-height:1.5}
+  .verdict .v-op{
+    display:inline-flex;align-items:center;gap:7px;margin-top:12px;
+    font-size:12px;font-weight:800;color:var(--gold);
+    border:1px solid rgba(251,191,36,.4);border-radius:999px;padding:6px 14px;
+    background:rgba(251,191,36,.08);
+  }
+
+  /* Awards modal */
+  .tier-row{display:flex;gap:8px;margin-bottom:16px}
+  .tier{
+    flex:1;text-align:center;padding:12px 8px;border-radius:12px;
+    border:1px solid var(--line);background:var(--panel-2);
+  }
+  .tier .t-ico{font-size:20px}
+  .tier .t-name{font-size:12px;font-weight:800;margin-top:4px}
+  .tier .t-pts{font-size:10.5px;color:var(--text-faint);font-weight:700;margin-top:2px}
+  .tier.reached{border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.07)}
+  .tier.reached .t-name{color:var(--gold)}
+  .badge-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .badge-card{
+    display:flex;gap:10px;align-items:flex-start;
+    padding:10px 12px;border-radius:11px;
+    border:1px solid var(--line);background:var(--panel-2);
+  }
+  .badge-card .b-ico{font-size:18px;flex:none;margin-top:1px}
+  .badge-card .b-name{font-size:12px;font-weight:800}
+  .badge-card .b-desc{font-size:10.5px;color:var(--text-faint);line-height:1.45;margin-top:2px}
+  .badge-card .b-pts{font-size:10.5px;font-weight:800;color:var(--gold);margin-top:3px}
+  .badge-card.earned{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.06)}
+  .badge-card.locked{opacity:.55}
+  .badge-card.locked .b-ico{filter:grayscale(1);opacity:.7}
+  .completion{
+    margin-top:16px;padding:14px;border-radius:12px;text-align:center;
+    border:1px dashed rgba(251,191,36,.45);background:rgba(251,191,36,.05);
+  }
+  .completion .c-label{font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim)}
+  .completion .c-code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:17px;font-weight:800;color:var(--gold);letter-spacing:2px;margin-top:6px;
+  }
+  .completion .c-note{font-size:11px;color:var(--text-faint);margin-top:6px;line-height:1.5}
+
+  /* Intro modal */
+  .steps{display:flex;flex-direction:column;gap:11px;margin:16px 0 4px}
+  .step{display:flex;gap:13px;align-items:flex-start}
+  .step .s-num{
+    width:26px;height:26px;border-radius:8px;flex:none;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:grid;place-items:center;font-size:12.5px;font-weight:800;color:#fff;
+  }
+  .step b{font-size:13px;display:block}
+  .step span{font-size:12px;color:var(--text-dim);line-height:1.5}
+
+  /* Toast */
+  #toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--panel-3);border:1px solid var(--line);color:var(--text);
+    font-size:12.5px;font-weight:600;padding:10px 18px;border-radius:10px;
+    box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:all .25s;z-index:80;
+    max-width:min(560px,90vw);text-align:center;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.award{
+    border-color:rgba(251,191,36,.55);background:linear-gradient(135deg,#2a2410,#1c2a47);
+    color:var(--gold);font-weight:800;box-shadow:0 8px 30px rgba(251,191,36,.25);
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ Top bar ============ -->
+  <header class="topbar">
+    <div class="logo">G</div>
+    <div class="title-wrap">
+      <h1>Golisano Productivity Lab</h1>
+      <p>Inbox → Braindump → Time Blocks · Golisano Institute for Business &amp; Entrepreneurship</p>
+    </div>
+    <nav class="tabs" aria-label="Views">
+      <button class="tab" id="tabInbox">📥 Inbox <span class="t-badge" id="inboxBadge">9</span></button>
+      <button class="tab" id="tabPlanner">🗓 Weekly Planner</button>
+    </nav>
+    <div class="topbar-spacer"></div>
+    <button class="op-pill" id="opPill" title="Orientation Points — click for your awards">
+      <span class="op-star">⭐</span>
+      <span class="op-num" id="opNum">0 OP</span>
+      <span class="op-bar"><i id="opBarFill"></i></span>
+      <span class="op-tier" id="opTier">—</span>
+    </button>
+    <button class="btn btn-ghost" id="btnHelp">How it works</button>
+    <button class="btn" id="btnReset">Reset</button>
+    <button class="btn btn-primary" id="btnCheck">✓ Check My Week</button>
+  </header>
+
+  <!-- ============ Inbox view ============ -->
+  <div class="view" id="inboxView">
+    <div class="mail-rail" id="mailRail"></div>
+    <div class="mail-list" id="mailList"></div>
+    <div class="reading" id="readingPane"></div>
+  </div>
+
+  <!-- ============ Planner view ============ -->
+  <div class="view" id="plannerView" style="display:none">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="meters">
+          <div class="meter-head">
+            <span class="label">Independent Study Quota</span>
+            <span class="value" id="quotaValue">0h</span>
+          </div>
+          <div class="quota-track">
+            <div class="quota-fill" id="quotaFill"></div>
+            <div class="quota-marker" id="quotaMin" data-label="min 18h"></div>
+            <div class="quota-marker" id="quotaMax" data-label="target 27h"></div>
+          </div>
+          <p class="quota-note" id="quotaNote"></p>
+        </div>
+        <div class="backlog-head">
+          <h2>Braindump</h2>
+          <span class="count" id="backlogCount"></span>
+        </div>
+        <div class="backlog" id="backlog"></div>
+      </aside>
+      <main class="board">
+        <div class="board-head">
+          <h2>Weekly Time Blocks</h2>
+          <span class="sub">Drag tasks from the Braindump into a block. Class sessions are locked in.</span>
+        </div>
+        <div class="alert-strip" id="alertStrip"></div>
+        <div class="grid-scroll">
+          <div class="week-grid" id="weekGrid"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Task setup modal ============ -->
+<div class="overlay" id="taskOverlay">
+  <div class="modal">
+    <h3 id="tmName">Task</h3>
+    <p class="m-sub" id="tmSub"></p>
+    <div class="field">
+      <label>Category</label>
+      <div class="fixed-chip-row" id="tmCat"></div>
+    </div>
+    <div class="field">
+      <label>Estimated completion time</label>
+      <div class="seg" id="tmEst"></div>
+      <p class="hint" id="tmEstHint"></p>
+    </div>
+    <div class="field">
+      <label>Priority level</label>
+      <div class="seg" id="tmPri"></div>
+    </div>
+    <div class="field">
+      <label>Hard deadline</label>
+      <div class="fixed-chip-row" id="tmDue"></div>
+      <p class="hint">Deadlines are set by your professors and internship supervisor — you can't move them, only plan around them.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="tmCancel">Cancel</button>
+      <button class="btn btn-primary" id="tmConfirm">Confirm &amp; unlock ➜</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ New folder modal ============ -->
+<div class="overlay" id="folderOverlay">
+  <div class="modal">
+    <h3>📁 New folder</h3>
+    <p class="m-sub">One folder per topic keeps every email findable later. Pick what this folder is for, then name it however you like.</p>
+    <div class="field">
+      <label>This folder is for</label>
+      <div class="seg" id="fmTopic"></div>
+      <p class="hint">You'll need one folder for each of your three classes and one for your internship.</p>
+    </div>
+    <div class="field">
+      <label>Folder name</label>
+      <input type="text" id="fmName" maxlength="32" placeholder="Pick a topic first…">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="fmCancel">Cancel</button>
+      <button class="btn btn-primary" id="fmCreate">Create folder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Check My Week modal ============ -->
+<div class="overlay" id="reportOverlay">
+  <div class="modal wide">
+    <h3>📋 Weekly Plan Review</h3>
+    <p class="m-sub">Here's how your week holds up against the Golisano workload standard.</p>
+    <div id="reportBody"></div>
+    <div class="verdict" id="reportVerdict"></div>
+    <div class="modal-actions">
+      <button class="btn" id="reportAwards">⭐ My awards</button>
+      <button class="btn btn-primary" id="reportClose">Back to planning</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Awards modal ============ -->
+<div class="overlay" id="awardsOverlay">
+  <div class="modal wide">
+    <h3>⭐ Orientation Points</h3>
+    <p class="m-sub">Points reward the habits, not the clicks: sorting signal from noise, honest estimates, sustainable weeks. Earn your tier by the end of orientation.</p>
+    <div class="tier-row" id="tierRow"></div>
+    <div class="badge-grid" id="badgeGrid"></div>
+    <div class="completion">
+      <div class="c-label">Completion code</div>
+      <div class="c-code" id="completionCode">—</div>
+      <div class="c-note">Submit this code in the Canvas orientation assignment. It encodes your earned badges — it updates as you earn more, so submit your final code at the end of orientation.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="awardsClose">Keep going</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Intro modal ============ -->
+<div class="overlay" id="introOverlay">
+  <div class="modal wide">
+    <h3>👋 Welcome to the Productivity Lab</h3>
+    <p class="m-sub">You're one week into the accelerated program. Your professors and your internship supervisor have been emailing — and your calendar is still empty. Turn that inbox into a week you can actually execute.</p>
+    <div class="steps">
+      <div class="step"><div class="s-num">1</div><div><b>Sort your inbox</b><span>Create four folders — one per class, one for your internship — and drag each email where it belongs. Organize first, act second.</span></div></div>
+      <div class="step"><div class="s-num">2</div><div><b>Extract the tasks</b><span>Open each filed email and decide: does someone need something from you, or is it just context? Real asks become tasks in your Braindump.</span></div></div>
+      <div class="step"><div class="s-num">3</div><div><b>Verify your Braindump</b><span>Every task starts locked. Confirm a realistic time estimate and priority — the emails tell you what's expected — and it unlocks for scheduling.</span></div></div>
+      <div class="step"><div class="s-num">4</div><div><b>Block your week</b><span>Drag tasks into morning, afternoon, and evening blocks around your locked class sessions. Big projects come pre-chunked — spread the parts out in order.</span></div></div>
+      <div class="step"><div class="s-num">5</div><div><b>Earn Orientation Points</b><span>Guardrails watch your study quota, deadlines, and burnout risk. Master them to earn ⭐ OP and badges toward your end-of-orientation award.</span></div></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="introClose">Open my inbox ➜</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Golisano Productivity Lab — Inbox triage + time-blocking simulation
+   Phase 1: sort a mock inbox into topic folders, extract real tasks.
+   Phase 2: verify estimates and drag tasks into weekly time blocks.
+   Orientation Points reward mastery behaviors across both phases.
+   ===================================================================== */
+
+const STORAGE_KEY = 'golisano-timeblock-v2';
+
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const BLOCKS = [
+  {id:'morning',   label:'Morning',   time:'8 AM – 12 PM', cap:4},
+  {id:'afternoon', label:'Afternoon', time:'1 PM – 5 PM',  cap:4},
+  {id:'evening',   label:'Evening',   time:'6 PM – 9 PM',  cap:3},
+];
+const BLOCK_INDEX = Object.fromEntries(BLOCKS.map((b,i)=>[b.id,i]));
+
+const CLASS_SESSIONS = [
+  {code:'ENT-101', name:'Principles of Entrepreneurship', day:0, block:'morning',   hours:1.5},
+  {code:'ENT-101', name:'Principles of Entrepreneurship', day:2, block:'morning',   hours:1.5},
+  {code:'ACC-110', name:'Applied Financial Accounting',   day:1, block:'morning',   hours:1.5},
+  {code:'ACC-110', name:'Applied Financial Accounting',   day:3, block:'morning',   hours:1.5},
+  {code:'COM-105', name:'Business Communication',         day:0, block:'afternoon', hours:1.5},
+  {code:'COM-105', name:'Business Communication',         day:3, block:'afternoon', hours:1.5},
+];
+const CLASS_HOURS = CLASS_SESSIONS.reduce((s,c)=>s+c.hours,0); // 9h
+const QUOTA_MIN = CLASS_HOURS * 2;   // 18h
+const QUOTA_MAX = CLASS_HOURS * 3;   // 27h
+
+const EST_OPTIONS = [0.5, 1, 1.5, 2, 3];
+const DAY_BURNOUT_HOURS = 9;
+const HIGH_PRI_PILEUP = 3;
+
+const CATS = {
+  coursework: {label:'Coursework',        cls:'cat-coursework'},
+  internship: {label:'Internship',        cls:'cat-internship'},
+  study:      {label:'Independent Study', cls:'cat-study'},
+};
+const PRIS = [
+  {id:'high', label:'High',   cls:'pri-h'},
+  {id:'med',  label:'Medium', cls:'pri-m'},
+  {id:'low',  label:'Low',    cls:'pri-l'},
+];
+
+/* ---------- Topics (folders map to these) ---------- */
+const TOPICS = {
+  ent: {code:'ENT-101',    label:'ENT-101 · Entrepreneurship', color:'#a78bfa'},
+  acc: {code:'ACC-110',    label:'ACC-110 · Accounting',       color:'#38bdf8'},
+  com: {code:'COM-105',    label:'COM-105 · Communication',    color:'#f472b6'},
+  int: {code:'Internship', label:'Internship · Brightline',    color:'#f59e0b'},
+};
+
+/* ---------- Task definitions (created when extracted from email) ---------- */
+const TASK_DEFS = {
+  c1:  {name:'Case Study: Read + Annotate',    src:'ENT-101 · Principles of Entrepreneurship', cat:'coursework', est:1,   sug:1,   pri:'med',  due:2},
+  c2:  {name:'Elevator Pitch Practice',        src:'ENT-101 · Principles of Entrepreneurship', cat:'coursework', est:1,   sug:1,   pri:'high', due:4},
+  c3:  {name:'Problem Set 2: Journal Entries', src:'ACC-110 · Applied Financial Accounting',   cat:'coursework', est:2,   sug:2,   pri:'high', due:3},
+  c4:  {name:'Ledger Lab Prep',                src:'ACC-110 · Applied Financial Accounting',   cat:'coursework', est:1,   sug:1,   pri:'med',  due:1},
+  c5:  {name:'Persuasive Memo Draft',          src:'COM-105 · Business Communication',         cat:'coursework', est:1.5, sug:1.5, pri:'med',  due:4},
+  c6:  {name:'Reading Quiz Prep',              src:'COM-105 · Business Communication',         cat:'coursework', est:0.5, sug:0.5, pri:'low',  due:3},
+  p1:  {name:'Market Research Deck', src:'Internship · Brightline Ventures', cat:'internship',
+        isProject:true, chunks:['p1a','p1b','p1c','p1d'], est:6, pri:'high', due:6},
+  p1a: {name:'Research: TAM + competitor pull', src:'Market Research Deck', cat:'internship', est:2,   sug:2,   pri:'high', due:2, parent:'p1', part:1},
+  p1b: {name:'Outline: deck narrative',         src:'Market Research Deck', cat:'internship', est:1,   sug:1,   pri:'med',  due:3, parent:'p1', part:2},
+  p1c: {name:'Draft: build the slides',         src:'Market Research Deck', cat:'internship', est:2,   sug:2,   pri:'high', due:4, parent:'p1', part:3},
+  p1d: {name:'Polish: design + rehearse',       src:'Market Research Deck', cat:'internship', est:1,   sug:1,   pri:'med',  due:6, parent:'p1', part:4},
+  p2:  {name:'Social Media Audit', src:'Internship · Brightline Ventures', cat:'internship',
+        isProject:true, chunks:['p2a','p2b','p2c'], est:4, pri:'med', due:5},
+  p2a: {name:'Collect: channel metrics export', src:'Social Media Audit', cat:'internship', est:1.5, sug:1.5, pri:'med',  due:1, parent:'p2', part:1},
+  p2b: {name:'Scan: 3 competitor accounts',     src:'Social Media Audit', cat:'internship', est:1,   sug:1,   pri:'low',  due:3, parent:'p2', part:2},
+  p2c: {name:'Write-up: findings + recs',       src:'Social Media Audit', cat:'internship', est:1.5, sug:1.5, pri:'high', due:5, parent:'p2', part:3},
+};
+
+/* ---------- The mock inbox ---------- */
+const EMAILS = [
+  {id:'e1', topic:'ent', from:'Prof. Daniels', addr:'j.daniels@golisano.edu', time:'Mon 8:12 AM',
+   subject:'Week 2: case study + pitch showcase',
+   body:[
+     'Hi everyone — two things for this week.',
+     'First, read and annotate the <b>Warby Parker case study</b> before Wednesday\'s class. Come with three margin notes on their launch strategy. Budget about <b>an hour</b> if you read actively.',
+     'Second, our <b>elevator pitch showcase is Friday</b>. Practice your 90-second pitch out loud — not in your head — at least a few times before then. The students who rehearse are always obvious.',
+   ],
+   fyi:false, taskIds:['c1','c2']},
+  {id:'e2', topic:'ent', from:'Prof. Daniels', addr:'j.daniels@golisano.edu', time:'Mon 3:40 PM',
+   subject:'Guest founder visit confirmed for next month',
+   body:[
+     'Quick heads-up: the founder of a local logistics startup has confirmed a guest session with our class next month.',
+     'Nothing to prepare — I\'ll share pre-reading closer to the date. Just wanted it on your radar.',
+   ],
+   fyi:true, taskIds:[]},
+  {id:'e3', topic:'acc', from:'Prof. Okafor', addr:'a.okafor@golisano.edu', time:'Mon 9:05 AM',
+   subject:'Problem Set 2 posted + ledger lab Tuesday',
+   body:[
+     'Problem Set 2 (journal entries) is now posted. It is due <b>Thursday at start of class</b> and it is meatier than PS1 — most students need a solid <b>two hours</b>. Do not start it Wednesday night.',
+     'Also: Tuesday\'s session is our first <b>ledger lab</b>. Skim the lab sheet and set up your ledger template beforehand — about an hour of prep. Students who arrive set up get through twice the material.',
+   ],
+   fyi:false, taskIds:['c3','c4']},
+  {id:'e4', topic:'acc', from:'Prof. Okafor', addr:'a.okafor@golisano.edu', time:'Tue 11:20 AM',
+   subject:'Office hours moved to 3 PM this week',
+   body:[
+     'Small change: my office hours move from 2 PM to <b>3 PM</b> this week only, same room (GB-210).',
+     'No action needed — just come at the new time if you were planning to stop by.',
+   ],
+   fyi:true, taskIds:[]},
+  {id:'e5', topic:'com', from:'Prof. Rivera', addr:'m.rivera@golisano.edu', time:'Mon 10:47 AM',
+   subject:'Persuasive memo draft + Thursday reading quiz',
+   body:[
+     'Your <b>persuasive memo draft</b> is due Friday. A focused draft takes about 90 minutes — remember, we\'re grading structure and audience awareness, not polish.',
+     'There\'s also a short <b>reading quiz Thursday</b> on chapters 3–4. Thirty minutes of review is plenty if you did the reading.',
+   ],
+   fyi:false, taskIds:['c5','c6']},
+  {id:'e6', topic:'com', from:'Prof. Rivera', addr:'m.rivera@golisano.edu', time:'Wed 4:02 PM',
+   subject:'Room change: we\'re in BC-204 starting Monday',
+   body:[
+     'Facilities is renovating our usual room, so starting Monday we meet in <b>BC-204</b> (same building, second floor).',
+     'That\'s it — see you there.',
+   ],
+   fyi:true, taskIds:[]},
+  {id:'e7', topic:'int', from:'Maya Chen', addr:'maya.chen@brightline.vc', time:'Mon 8:55 AM',
+   subject:'Market research deck — client presents Monday',
+   body:[
+     'Morning! The client moved their board meeting up, so I need your <b>market research deck</b> finalized by <b>end of Sunday</b>.',
+     'Don\'t try to do it in one sitting. Break it down: <b>(1)</b> pull TAM numbers and competitor data early in the week, <b>(2)</b> outline the narrative, <b>(3)</b> build the slides, <b>(4)</b> polish and rehearse the walkthrough. Research and slide-building are the heavy parts — about two hours each; the outline and polish passes are an hour each.',
+     'Ping me on Slack when the outline is ready and I\'ll sanity-check the story before you build.',
+   ],
+   fyi:false, taskIds:['p1']},
+  {id:'e8', topic:'int', from:'Maya Chen', addr:'maya.chen@brightline.vc', time:'Tue 2:15 PM',
+   subject:'Second ask: social media audit for Q4 planning',
+   body:[
+     'One more for your plate this week — a <b>social media audit</b> for Q4 planning, due <b>Saturday</b>.',
+     'Same playbook as the deck: <b>export our channel metrics</b> first (about 90 minutes), <b>scan three competitor accounts</b> (an hour), then <b>write up findings and recommendations</b> (another 90 minutes). The write-up is what Leadership actually reads, so leave energy for it.',
+   ],
+   fyi:false, taskIds:['p2']},
+  {id:'e9', topic:'int', from:'Priya Raman', addr:'priya.raman@brightline.vc', time:'Wed 12:30 PM',
+   subject:'Team lunch Friday 🎉',
+   body:[
+     'Team lunch this Friday at 12:30 — we\'re celebrating the Series A close. Interns absolutely included!',
+     'Nothing to bring, nothing to prep. Just show up hungry.',
+   ],
+   fyi:true, taskIds:[]},
+];
+const emailDef = id => EMAILS.find(e=>e.id===id);
+
+/* ---------- Orientation Points ---------- */
+const ACHIEVEMENTS = [
+  // Inbox phase
+  {id:'filing_system', ico:'🗂', name:'Filing System',     pts:10, desc:'Create all four topic folders — one per class, one for the internship.'},
+  {id:'inbox_zero',    ico:'📥', name:'Inbox Zero',        pts:15, desc:'Every email filed into its correct folder.'},
+  {id:'first_try',     ico:'🎯', name:'First-Try Filer',   pts:10, desc:'File every email into the right folder on the first attempt.'},
+  {id:'sharp_eye',     ico:'👁', name:'Sharp Eye',         pts:10, desc:'Correctly judge every email — task vs. just-context — with no misreads.'},
+  {id:'signal_noise',  ico:'📡', name:'Signal from Noise', pts:15, desc:'Process the whole inbox: every real ask extracted, every FYI archived.'},
+  // Planner phase (evaluated on Check My Week)
+  {id:'sized_up',      ico:'📏', name:'Sized Up',              pts:10, desc:'Verify a realistic estimate and priority on every Braindump task.'},
+  {id:'on_board',      ico:'🗓', name:'On the Board',          pts:10, desc:'Schedule every task — nothing left floating in your head.'},
+  {id:'deep_work',     ico:'📚', name:'Deep Work Devotee',     pts:15, desc:'Land your study hours inside the 18–27h quota band.'},
+  {id:'deadline_def',  ico:'⏰', name:'Deadline Defender',     pts:10, desc:'Every scheduled task lands on or before its hard deadline.'},
+  {id:'elephant',      ico:'🐘', name:'Elephant Tamer',        pts:15, desc:'Schedule every project chunk, in working order, across the week.'},
+  {id:'sustainable',   ico:'🧯', name:'Sustainable Scheduler', pts:15, desc:'A fully scheduled week with zero over-capacity blocks and zero burnout days.'},
+  {id:'spaced',        ico:'🧠', name:'Spaced, Not Crammed',   pts:10, desc:'Spread study + coursework across at least four different days.'},
+  {id:'comeback',      ico:'🔁', name:'Comeback',              pts:10, desc:'Improve your verdict between two Check My Week reviews. Re-planning is the skill.'},
+  {id:'founder',       ico:'🏆', name:'Founder-Grade Week',    pts:20, desc:'A flawless review — every check green, no warnings at all.'},
+];
+const MAX_OP = ACHIEVEMENTS.reduce((s,a)=>s+a.pts,0); // 175
+const TIERS = [
+  {name:'Bronze', ico:'🥉', pts:60},
+  {name:'Silver', ico:'🥈', pts:110},
+  {name:'Gold',   ico:'🥇', pts:160},
+];
+
+/* ---------- State ---------- */
+let state = null;
+
+function defaultState(){
+  return {
+    view:'inbox',
+    mailbox:'inbox',       // 'inbox' or a folder id
+    sel:null,              // selected email id
+    folders:[],            // {id, name, topic}
+    emails: EMAILS.map(e=>({id:e.id, folder:null, firstTry:null, processed:null, read:false})),
+    tasks:[],              // created on extraction
+    spawnCount:0,
+    introSeen:false,
+    earned:{},             // achievement id -> true
+    discernMisses:0,
+    lastVerdict:null,      // rank 0..3 from previous Check
+  };
+}
+function save(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    const s = JSON.parse(raw);
+    if(!s || !Array.isArray(s.emails) || !Array.isArray(s.tasks)) return null;
+    return s;
+  }catch(e){ return null; }
+}
+function task(id){ return state.tasks.find(t=>t.id===id); }
+function emailState(id){ return state.emails.find(e=>e.id===id); }
+function folderById(id){ return state.folders.find(f=>f.id===id); }
+function fmtH(h){ return (h % 1 === 0 ? h : h.toFixed(1)) + 'h'; }
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function scheduledTasks(){ return state.tasks.filter(t=>t.scheduled && !t.isProject); }
+function tasksIn(day, block){ return scheduledTasks().filter(t=>t.scheduled.d===day && t.scheduled.b===block); }
+function classesIn(day, block){ return CLASS_SESSIONS.filter(c=>c.day===day && c.block===block); }
+function cellTaskHours(day, block){ return tasksIn(day,block).reduce((s,t)=>s+t.est,0); }
+function cellClassHours(day, block){ return classesIn(day,block).reduce((s,c)=>s+c.hours,0); }
+function cellFreeCap(day, block){
+  const b = BLOCKS.find(x=>x.id===block);
+  return b.cap - cellClassHours(day, block);
+}
+function dayLoad(day){
+  const cls = CLASS_SESSIONS.filter(c=>c.day===day).reduce((s,c)=>s+c.hours,0);
+  const tsk = scheduledTasks().filter(t=>t.scheduled.d===day).reduce((s,t)=>s+t.est,0);
+  return {cls, tsk, total: cls+tsk};
+}
+function quotaHours(){
+  return scheduledTasks()
+    .filter(t=>t.cat==='coursework' || t.cat==='study')
+    .reduce((s,t)=>s+t.est,0);
+}
+function slotIndex(sch){ return sch.d*BLOCKS.length + BLOCK_INDEX[sch.b]; }
+
+/* ---------- Points engine ---------- */
+function pointsTotal(){
+  return ACHIEVEMENTS.reduce((s,a)=>s + (state.earned[a.id] ? a.pts : 0), 0);
+}
+function tierFor(pts){
+  let t = null;
+  for(const tier of TIERS) if(pts >= tier.pts) t = tier;
+  return t;
+}
+function nextTier(pts){
+  for(const tier of TIERS) if(pts < tier.pts) return tier;
+  return null;
+}
+function award(id){
+  if(state.earned[id]) return false;
+  const a = ACHIEVEMENTS.find(x=>x.id===id);
+  if(!a) return false;
+  state.earned[id] = true;
+  queueToast(`🏅 +${a.pts} OP — ${a.name}`, true);
+  const tier = tierFor(pointsTotal());
+  const prevPts = pointsTotal() - a.pts;
+  if(tier && prevPts < tier.pts){
+    queueToast(`${tier.ico} ${tier.name} tier reached! ${pointsTotal()} Orientation Points`, true);
+  }
+  return true;
+}
+
+function correctlyFiled(e){
+  const f = folderById(e.folder);
+  return !!f && f.topic === emailDef(e.id).topic;
+}
+
+/* Inbox achievements — evaluated live after each inbox action */
+function evalInboxAwards(){
+  const topicsCovered = new Set(state.folders.map(f=>f.topic));
+  if(['ent','acc','com','int'].every(t=>topicsCovered.has(t))) award('filing_system');
+
+  const allFiled = state.emails.every(correctlyFiled);
+  if(allFiled){
+    award('inbox_zero');
+    if(state.emails.every(e=>e.firstTry === true)) award('first_try');
+  }
+  const allProcessed = state.emails.every(e=>e.processed);
+  if(allProcessed){
+    award('signal_noise');
+    if(state.discernMisses === 0) award('sharp_eye');
+  }
+}
+
+/* Planner achievements — evaluated on Check My Week */
+function evalPlannerAwards(report){
+  const allProcessed = state.emails.every(e=>e.processed);
+  const plain = state.tasks.filter(t=>!t.isProject);
+  const allVerified = allProcessed && plain.length>0 && plain.every(t=>t.verified);
+  const allScheduled = allVerified && plain.every(t=>t.scheduled);
+
+  if(allVerified) award('sized_up');
+  if(allScheduled) award('on_board');
+
+  const q = quotaHours();
+  if(q >= QUOTA_MIN && q <= QUOTA_MAX) award('deep_work');
+
+  const misses = scheduledTasks().filter(t=>t.due!=null && t.scheduled.d > t.due);
+  if(allScheduled && misses.length===0) award('deadline_def');
+
+  const projects = state.tasks.filter(t=>t.isProject);
+  if(projects.length >= 2){
+    let allChunksOK = true;
+    for(const p of projects){
+      const chunks = p.chunks.map(id=>task(id));
+      if(!chunks.every(c=>c && c.scheduled)){ allChunksOK = false; break; }
+      const sorted = [...chunks].sort((a,b)=>a.part-b.part);
+      for(let i=1;i<sorted.length;i++){
+        if(slotIndex(sorted[i].scheduled) < slotIndex(sorted[i-1].scheduled)) allChunksOK = false;
+      }
+    }
+    if(allChunksOK) award('elephant');
+  }
+
+  let anyOver = false;
+  for(let d=0;d<7;d++) for(const b of BLOCKS)
+    if(cellTaskHours(d,b.id) > cellFreeCap(d,b.id)) anyOver = true;
+  const anyBurn = DAYS.some((_,d)=>dayLoad(d).total > DAY_BURNOUT_HOURS);
+  if(allScheduled && !anyOver && !anyBurn) award('sustainable');
+
+  const quotaDays = new Set(scheduledTasks()
+    .filter(t=>t.cat==='coursework'||t.cat==='study').map(t=>t.scheduled.d));
+  if(q > 0 && quotaDays.size >= 4) award('spaced');
+
+  if(state.lastVerdict != null && report.rank > state.lastVerdict) award('comeback');
+  if(report.bads===0 && report.warns===0 && allScheduled) award('founder');
+
+  state.lastVerdict = report.rank;
+}
+
+function completionCode(){
+  let bits = 0;
+  ACHIEVEMENTS.forEach((a,i)=>{ if(state.earned[a.id]) bits |= (1 << i); });
+  if(bits === 0) return '— earn a badge first —';
+  const chk = (bits * 2654435761 >>> 0) % 46656;
+  return 'GLB-' + bits.toString(36).toUpperCase().padStart(3,'0')
+       + '-' + chk.toString(36).toUpperCase().padStart(3,'0');
+}
+
+/* ---------- Alerts / guardrails ---------- */
+function computeAlerts(){
+  const alerts = [];
+  for(let d=0; d<7; d++){
+    for(const b of BLOCKS){
+      const used = cellTaskHours(d,b.id), free = cellFreeCap(d,b.id);
+      if(used > free){
+        alerts.push({sev:'bad', ico:'🔥',
+          text:`${DAYS[d]} ${b.label.toLowerCase()} is over capacity — ${fmtH(used)} of work in ${fmtH(free)} of open time. Something has to move.`});
+      }
+    }
+  }
+  for(let d=0; d<7; d++){
+    const load = dayLoad(d);
+    if(load.total > DAY_BURNOUT_HOURS){
+      alerts.push({sev:'bad', ico:'⚠️',
+        text:`Burnout alert: ${DAYS[d]} totals ${fmtH(load.total)} of classes + work. Nobody does their best thinking in hour ten.`});
+    }
+  }
+  for(let d=0; d<7; d++){
+    const highs = scheduledTasks().filter(t=>t.scheduled.d===d && t.pri==='high').length;
+    if(highs >= HIGH_PRI_PILEUP){
+      alerts.push({sev:'warn', ico:'🎯',
+        text:`${highs} high-priority tasks stacked on ${DAYS[d]}. Spread the pressure across the week.`});
+    }
+  }
+  for(const t of scheduledTasks()){
+    if(t.due != null && t.scheduled.d > t.due){
+      alerts.push({sev:'bad', ico:'⏰',
+        text:`“${t.name}” is scheduled for ${DAYS[t.scheduled.d]} but due ${DAYS[t.due]}.`});
+    }
+  }
+  for(const p of state.tasks.filter(t=>t.isProject)){
+    const placed = p.chunks.map(id=>task(id)).filter(c=>c && c.scheduled);
+    for(let i=0;i<placed.length;i++){
+      for(let j=0;j<placed.length;j++){
+        if(placed[i].part < placed[j].part && slotIndex(placed[i].scheduled) > slotIndex(placed[j].scheduled)){
+          alerts.push({sev:'warn', ico:'🐘',
+            text:`${p.name}: Part ${placed[j].part} is scheduled before Part ${placed[i].part}. Chunks build on each other — keep them in order.`});
+        }
+      }
+    }
+  }
+  const seen = new Set();
+  return alerts.filter(a=>{ if(seen.has(a.text)) return false; seen.add(a.text); return true; });
+}
+
+/* ---------- Rendering ---------- */
+const $ = sel => document.querySelector(sel);
+
+function render(){
+  renderHeader();
+  if(state.view === 'inbox'){
+    $('#inboxView').style.display = 'flex';
+    $('#plannerView').style.display = 'none';
+    renderMailRail();
+    renderMailList();
+    renderReadingPane();
+  } else {
+    $('#inboxView').style.display = 'none';
+    $('#plannerView').style.display = 'block';
+    renderQuota();
+    renderBacklog();
+    renderGrid();
+    renderAlerts();
+  }
+  save();
+}
+
+function renderHeader(){
+  $('#tabInbox').classList.toggle('active', state.view==='inbox');
+  $('#tabPlanner').classList.toggle('active', state.view==='planner');
+  const remaining = state.emails.filter(e=>!e.processed).length;
+  const badge = $('#inboxBadge');
+  badge.textContent = remaining;
+  badge.style.display = remaining ? '' : 'none';
+
+  const pts = pointsTotal();
+  $('#opNum').textContent = pts + ' OP';
+  const tier = tierFor(pts), next = nextTier(pts);
+  $('#opTier').textContent = tier ? `${tier.ico} ${tier.name}` : (next ? `${next.name} at ${next.pts}` : '');
+  const goal = next ? next.pts : MAX_OP;
+  $('#opBarFill').style.width = Math.min(100,(pts/goal)*100) + '%';
+}
+
+/* ----- Inbox: folder rail ----- */
+function renderMailRail(){
+  const rail = $('#mailRail');
+  rail.innerHTML = '';
+
+  const unfiled = state.emails.filter(e=>!e.folder).length;
+
+  const inboxItem = document.createElement('div');
+  inboxItem.className = 'rail-item' + (state.mailbox==='inbox' ? ' active' : '');
+  inboxItem.innerHTML = `<span class="r-ico">📥</span><span class="r-name">Inbox</span>
+    <span class="rail-count ${unfiled ? 'hot' : 'done'}">${unfiled || '✓'}</span>`;
+  inboxItem.addEventListener('click', ()=>{ state.mailbox='inbox'; state.sel=null; render(); });
+  addRailDrop(inboxItem, null);
+  rail.appendChild(inboxItem);
+
+  const lbl = document.createElement('div');
+  lbl.className = 'rail-label';
+  lbl.textContent = 'Your folders';
+  rail.appendChild(lbl);
+
+  state.folders.forEach(f=>{
+    const emailsHere = state.emails.filter(e=>e.folder===f.id);
+    const pending = emailsHere.filter(e=>!e.processed).length;
+    const el = document.createElement('div');
+    el.className = 'rail-item' + (state.mailbox===f.id ? ' active' : '');
+    el.innerHTML = `<span class="rail-topic" style="background:${TOPICS[f.topic].color}"></span>
+      <span class="r-name">${esc(f.name)}</span>
+      <span class="rail-count ${emailsHere.length && !pending ? 'done' : ''}">${emailsHere.length ? (pending || '✓') : 0}</span>`;
+    el.addEventListener('click', ()=>{ state.mailbox=f.id; state.sel=null; render(); });
+    addRailDrop(el, f.id);
+    rail.appendChild(el);
+  });
+
+  if(state.folders.length < 4){
+    const nb = document.createElement('button');
+    nb.className = 'new-folder-btn';
+    nb.innerHTML = `＋ New folder <span style="opacity:.6">(${state.folders.length}/4)</span>`;
+    nb.addEventListener('click', openFolderModal);
+    rail.appendChild(nb);
+  }
+
+  const tip = document.createElement('div');
+  tip.className = 'rail-tip';
+  tip.innerHTML = state.folders.length < 4
+    ? `<b>Coach's tip:</b> a folder per topic beats one giant inbox. Create all four before you start filing.`
+    : (unfiled
+      ? `<b>Coach's tip:</b> drag each email onto its folder. Sender and subject tell you where it lives.`
+      : `<b>Coach's tip:</b> now open each folder and process every email — extract the asks, archive the FYIs.`);
+  rail.appendChild(tip);
+}
+
+function addRailDrop(el, folderId){
+  el.addEventListener('dragover', e=>{
+    if(dragEmailId){ e.preventDefault(); el.classList.add('drag-over'); }
+  });
+  el.addEventListener('dragleave', ()=>el.classList.remove('drag-over'));
+  el.addEventListener('drop', e=>{
+    e.preventDefault();
+    el.classList.remove('drag-over');
+    if(dragEmailId) fileEmail(dragEmailId, folderId);
+  });
+}
+
+function fileEmail(emailId, folderId){
+  const e = emailState(emailId);
+  if(!e || e.folder === folderId) return;
+  if(e.processed){ queueToast('That email is already processed — leave it filed.'); return; }
+  e.folder = folderId;
+  if(folderId){
+    const correct = folderById(folderId).topic === emailDef(emailId).topic;
+    if(e.firstTry === null) e.firstTry = correct;
+    if(!correct) queueToast('🤔 Filed — but check the sender and subject again. Does it really belong there?');
+    else queueToast(`Filed to ${esc(folderById(folderId).name)}`);
+  }
+  evalInboxAwards();
+  render();
+}
+
+/* ----- Inbox: message list ----- */
+function mailboxEmails(){
+  if(state.mailbox === 'inbox') return state.emails.filter(e=>!e.folder);
+  return state.emails.filter(e=>e.folder === state.mailbox);
+}
+
+function renderMailList(){
+  const list = $('#mailList');
+  list.innerHTML = '';
+
+  const head = document.createElement('div');
+  head.className = 'list-head';
+  const boxName = state.mailbox==='inbox' ? 'Inbox' : (folderById(state.mailbox)?.name || 'Folder');
+  const items = mailboxEmails();
+  head.innerHTML = `${esc(boxName)} <span>${items.length} email${items.length===1?'':'s'}</span>`;
+  list.appendChild(head);
+
+  if(items.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'list-empty';
+    empty.innerHTML = state.mailbox==='inbox'
+      ? '🎉 Inbox clear!<br>Now open each folder and turn the emails into tasks.'
+      : 'Nothing filed here yet.<br>Drag emails from the Inbox onto this folder.';
+    list.appendChild(empty);
+    return;
+  }
+
+  items.forEach(e=>{
+    const def = emailDef(e.id);
+    const row = document.createElement('div');
+    row.className = 'mail-row' + (e.read?' read':'') + (state.sel===e.id?' sel':'');
+    row.draggable = !e.processed;
+    const stateChip = e.processed
+      ? (e.processed==='tasks'
+          ? `<span class="m-state tasks">✓ ${def.taskIds.length===1 && TASK_DEFS[def.taskIds[0]].isProject ? 'project' : def.taskIds.length + ' task' + (def.taskIds.length>1?'s':'')} extracted</span>`
+          : `<span class="m-state fyi">FYI · archived</span>`)
+      : (e.folder ? `<span class="m-state todo">needs review</span>` : '');
+    row.innerHTML = `
+      <span class="unread-dot"></span>
+      <div class="m-col">
+        <div class="m-line1"><span class="m-from">${esc(def.from)}</span><span class="m-time">${def.time}</span></div>
+        <div class="m-subj">${esc(def.subject)}</div>
+        <div class="m-prev">${def.body[0].replace(/<[^>]+>/g,'')}</div>
+        ${stateChip ? `<div class="m-chips">${stateChip}</div>` : ''}
+      </div>`;
+    row.addEventListener('click', ()=>{ state.sel = e.id; e.read = true; render(); });
+    if(!e.processed){
+      row.addEventListener('dragstart', ev=>{
+        dragEmailId = e.id;
+        ev.dataTransfer.setData('text/plain', 'email:'+e.id);
+        ev.dataTransfer.effectAllowed = 'move';
+        requestAnimationFrame(()=>row.classList.add('dragging'));
+      });
+      row.addEventListener('dragend', ()=>{ row.classList.remove('dragging'); dragEmailId = null; });
+    }
+    list.appendChild(row);
+  });
+}
+
+/* ----- Inbox: reading pane ----- */
+const AV_COLORS = {ent:'#7c5cd6', acc:'#2593c9', com:'#d4569c', int:'#d98b06'};
+
+function renderReadingPane(){
+  const pane = $('#readingPane');
+  pane.innerHTML = '';
+  const e = state.sel ? emailState(state.sel) : null;
+  if(!e || !mailboxEmails().some(x=>x.id===e.id)){
+    pane.innerHTML = `<div class="reading-empty">
+      <div class="re-ico">📬</div>
+      <div><b>Select an email to read it.</b><br>Sort first, then process: file everything into folders,<br>then open each folder and pull out the real work.</div>
+    </div>`;
+    return;
+  }
+  const def = emailDef(e.id);
+  const initials = def.from.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+  const card = document.createElement('div');
+  card.className = 'read-card';
+  card.innerHTML = `
+    <div class="read-subj">${esc(def.subject)}</div>
+    <div class="read-meta">
+      <div class="avatar" style="background:${AV_COLORS[def.topic]}">${initials}</div>
+      <div><div class="rm-name">${esc(def.from)}</div><div class="rm-addr">${esc(def.addr)}</div></div>
+      <div class="rm-time">${def.time}</div>
+    </div>
+    <div class="read-body">${def.body.map(p=>`<p>${p}</p>`).join('')}</div>`;
+  pane.appendChild(card);
+
+  const box = document.createElement('div');
+
+  if(e.processed === 'tasks'){
+    box.className = 'action-box done-box';
+    const names = def.taskIds.map(id=>TASK_DEFS[id].name);
+    box.innerHTML = `
+      <div class="ab-title">✓ Added to your Braindump</div>
+      <div class="extracted-list">${names.map(n=>`<div class="ex-item">📌 ${esc(n)}</div>`).join('')}</div>
+      <div class="ab-row" style="margin-top:12px"><button class="btn btn-primary" id="goPlanner">Open the Weekly Planner ➜</button></div>`;
+    card.appendChild(box);
+    box.querySelector('#goPlanner').addEventListener('click', ()=>{ state.view='planner'; render(); });
+    return;
+  }
+  if(e.processed === 'fyi'){
+    box.className = 'action-box done-box';
+    box.innerHTML = `<div class="ab-title">✓ Archived as context</div>
+      <div class="ab-sub" style="margin-bottom:0">Good call — useful to know, nothing to do. It stays in this folder if you need it later.</div>`;
+    card.appendChild(box);
+    return;
+  }
+
+  if(!e.folder){
+    box.className = 'action-box';
+    box.innerHTML = `<div class="ab-title">📁 File it first</div>
+      <div class="ab-sub" style="margin-bottom:0">Organize, then act: drag this email from the list onto one of your folders. Once it's filed, you can review it for tasks.</div>`;
+    card.appendChild(box);
+    return;
+  }
+  if(!correctlyFiled(e)){
+    box.className = 'action-box warn-box';
+    box.innerHTML = `<div class="ab-title">🤔 Is this really ${esc(folderById(e.folder).name)} material?</div>
+      <div class="ab-sub" style="margin-bottom:0">Look at the sender and subject again. Re-file it into the right folder to unlock task review — misfiled email is where deadlines go to die.</div>`;
+    card.appendChild(box);
+    return;
+  }
+
+  box.className = 'action-box';
+  box.innerHTML = `
+    <div class="ab-title">🧠 Your call, planner</div>
+    <div class="ab-sub">Read it like a coach: is anyone actually asking you to <b>do</b> something by a deadline — or is this just context worth keeping?</div>
+    <div class="ab-row">
+      <button class="btn btn-primary" id="btnExtract">➕ Extract task${def.taskIds.length===1?'':'s'} to Braindump</button>
+      <button class="btn" id="btnFyi">📎 Just context — archive it</button>
+    </div>`;
+  card.appendChild(box);
+
+  box.querySelector('#btnExtract').addEventListener('click', ()=>{
+    if(def.fyi){
+      state.discernMisses++;
+      queueToast('🧐 Read it again — is anyone asking you to do anything? No ask, no task.');
+      return;
+    }
+    extractTasks(e.id);
+  });
+  box.querySelector('#btnFyi').addEventListener('click', ()=>{
+    if(!def.fyi){
+      state.discernMisses++;
+      queueToast('🧐 Look closer — there\'s a real deliverable with a deadline in there.');
+      save();
+      return;
+    }
+    e.processed = 'fyi';
+    queueToast('Archived — context kept, no task created.');
+    evalInboxAwards();
+    render();
+  });
+}
+
+function extractTasks(emailId){
+  const e = emailState(emailId);
+  const def = emailDef(emailId);
+  let count = 0;
+  const spawn = (id)=>{
+    if(task(id)) return;
+    const d = TASK_DEFS[id];
+    state.tasks.push(Object.assign({
+      id, verified:false, scheduled:null, parent:d.parent||null, part:d.part||null,
+      isProject:!!d.isProject, expanded:false, chunks:d.chunks||null, spawned:false,
+      sug:d.sug!=null?d.sug:null, due:d.due!=null?d.due:null,
+    }, {name:d.name, src:d.src, cat:d.cat, est:d.est, pri:d.pri}));
+    if(!d.isProject) count++;
+    if(d.chunks) d.chunks.forEach(spawn);
+  };
+  def.taskIds.forEach(spawn);
+  e.processed = 'tasks';
+  const isProject = def.taskIds.some(id=>TASK_DEFS[id].isProject);
+  queueToast(isProject
+    ? `🐘 Project added to your Braindump — ${count} chunks ready to verify`
+    : `📌 ${count} task${count>1?'s':''} added to your Braindump`);
+  evalInboxAwards();
+  render();
+}
+
+/* ----- Planner: quota meter ----- */
+function renderQuota(){
+  const h = quotaHours();
+  const scaleMax = QUOTA_MAX + 5;
+  const pct = Math.min(100, (h/scaleMax)*100);
+  const fill = $('#quotaFill');
+  fill.style.width = pct + '%';
+  fill.className = 'quota-fill' + (h>=QUOTA_MIN && h<=QUOTA_MAX ? ' good' : (h>QUOTA_MAX ? ' over' : ''));
+  $('#quotaMin').style.left = (QUOTA_MIN/scaleMax*100) + '%';
+  $('#quotaMax').style.left = (QUOTA_MAX/scaleMax*100) + '%';
+  $('#quotaValue').textContent = fmtH(h);
+  const note = $('#quotaNote');
+  if(h < QUOTA_MIN){
+    note.innerHTML = `You've blocked <b>${fmtH(h)}</b> of coursework + independent study against <b>${fmtH(CLASS_HOURS)}</b> of class time. The Golisano standard is <b>2–3 hours per class hour</b> (${fmtH(QUOTA_MIN)}–${fmtH(QUOTA_MAX)}). Keep going — spawn Deep Work blocks below.`;
+  } else if(h <= QUOTA_MAX){
+    note.innerHTML = `💪 <b>On standard.</b> ${fmtH(h)} of study + coursework against ${fmtH(CLASS_HOURS)} class hours — right in the ${fmtH(QUOTA_MIN)}–${fmtH(QUOTA_MAX)} zone.`;
+  } else {
+    note.innerHTML = `🔥 <b>${fmtH(h)}</b> is past the ${fmtH(QUOTA_MAX)} target. Ambitious — but check the burnout warnings before you commit to this.`;
+  }
+}
+
+/* ----- Planner: backlog ----- */
+function chipHTML(t){
+  const cat = CATS[t.cat];
+  const bits = [];
+  bits.push(`<span class="chip ${cat.cls}">${cat.label}</span>`);
+  bits.push(`<span class="chip est">⏱ ${fmtH(t.est)}</span>`);
+  if(t.due != null) bits.push(`<span class="chip due">Due ${DAYS[t.due]}</span>`);
+  const pri = PRIS.find(p=>p.id===t.pri);
+  bits.push(`<span class="pri-tag"><span class="pri-dot pri-${t.pri}"></span>${pri.label}</span>`);
+  return bits.join('');
+}
+
+function makeCard(t){
+  const el = document.createElement('div');
+  const isChunk = !!t.parent;
+
+  if(!t.verified){
+    el.className = 'card unverified';
+    el.innerHTML = `
+      ${isChunk ? `<div class="chunk-part">Part ${t.part}</div>` : ''}
+      <div class="card-top">
+        <div style="flex:1">
+          <div class="card-name">${esc(t.name)}</div>
+          <div class="card-src">${esc(t.src)}</div>
+        </div>
+      </div>
+      <div class="setup-cue">🔓 Click to verify estimate &amp; priority</div>`;
+    el.addEventListener('click', ()=>openTaskModal(t.id));
+    return el;
+  }
+
+  el.className = 'card draggable' + (t.scheduled ? ' scheduled-away' : '');
+  el.draggable = !t.scheduled;
+  el.innerHTML = `
+    ${isChunk ? `<div class="chunk-part">Part ${t.part}</div>` : ''}
+    <div class="card-top">
+      <span class="grip">⋮⋮</span>
+      <div style="flex:1">
+        <div class="card-name">${esc(t.name)}</div>
+        <div class="card-src">${esc(t.src)}</div>
+      </div>
+    </div>
+    <div class="card-meta">${chipHTML(t)}</div>
+    ${t.scheduled ? `<div class="placed-note">✓ On the board — ${DAYS[t.scheduled.d]} ${BLOCKS.find(b=>b.id===t.scheduled.b).label.toLowerCase()}</div>` : ''}
+    <button class="edit-btn" title="Edit estimate / priority">✎</button>`;
+  el.querySelector('.edit-btn').addEventListener('click', e=>{ e.stopPropagation(); openTaskModal(t.id); });
+  if(!t.scheduled){
+    el.addEventListener('dragstart', e=>startDrag(e, t.id, el));
+    el.addEventListener('dragend', ()=>endDrag(el));
+  }
+  return el;
+}
+
+function makeProjectCard(p){
+  const wrap = document.createElement('div');
+  const chunks = p.chunks.map(id=>task(id));
+  const done = chunks.filter(c=>c.scheduled).length;
+
+  const el = document.createElement('div');
+  el.className = 'card project' + (p.expanded ? ' expanded' : '');
+  el.innerHTML = `
+    <div class="project-tag">🐘 Major project
+      <span class="project-toggle"><span class="chev">▶</span> ${p.expanded ? 'Collapse' : `${chunks.length} chunks`}</span>
+    </div>
+    <div class="card-name">${esc(p.name)}</div>
+    <div class="card-src">${esc(p.src)}</div>
+    <div class="card-meta">${chipHTML(p)}</div>
+    <div class="project-progress">${done}/${chunks.length} chunks on the board</div>
+    <div class="project-bar"><i style="width:${(done/chunks.length)*100}%"></i></div>`;
+  el.addEventListener('click', ()=>{ p.expanded = !p.expanded; render(); });
+  wrap.appendChild(el);
+
+  if(p.expanded){
+    const list = document.createElement('div');
+    list.className = 'chunk-list';
+    chunks.forEach(c=>list.appendChild(makeCard(c)));
+    wrap.appendChild(list);
+  }
+  return wrap;
+}
+
+function renderBacklog(){
+  const root = $('#backlog');
+  root.innerHTML = '';
+
+  const remaining = state.tasks.filter(t=>!t.isProject && !t.scheduled).length;
+  $('#backlogCount').textContent = `${remaining} unscheduled`;
+
+  if(state.tasks.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'empty-braindump';
+    empty.innerHTML = `<span class="eb-ico">📥</span>
+      Your Braindump fills from your inbox.<br>
+      Sort your emails into folders, then extract the real asks as tasks — they'll land here, ready to schedule.`;
+    const goBtn = document.createElement('button');
+    goBtn.className = 'btn btn-primary';
+    goBtn.style.marginTop = '12px';
+    goBtn.textContent = '📥 Go process my inbox';
+    goBtn.addEventListener('click', ()=>{ state.view='inbox'; render(); });
+    empty.appendChild(goBtn);
+    root.appendChild(empty);
+  }
+
+  const sec = (label)=>{
+    const s = document.createElement('div');
+    s.className = 'section-label';
+    s.textContent = label;
+    root.appendChild(s);
+  };
+
+  const coursework = state.tasks.filter(t=>t.cat==='coursework' && !t.parent && !t.isProject);
+  if(coursework.length){
+    sec('Coursework');
+    coursework.forEach(t=>root.appendChild(makeCard(t)));
+  }
+  const projects = state.tasks.filter(t=>t.isProject);
+  if(projects.length){
+    sec('Internship & Projects');
+    projects.forEach(p=>root.appendChild(makeProjectCard(p)));
+  }
+
+  sec('Independent Study');
+  const sp = document.createElement('div');
+  sp.className = 'spawner';
+  sp.innerHTML = `
+    <p><b>Deep Work blocks:</b> reserve protected review &amp; study time to hit your 2–3h-per-class-hour quota.</p>
+    <div class="spawn-row">
+      <button class="spawn-btn" data-h="1">+ 1h block</button>
+      <button class="spawn-btn" data-h="1.5">+ 1.5h block</button>
+      <button class="spawn-btn" data-h="2">+ 2h block</button>
+    </div>`;
+  sp.querySelectorAll('.spawn-btn').forEach(b=>{
+    b.addEventListener('click', ()=>spawnStudyBlock(parseFloat(b.dataset.h)));
+  });
+  root.appendChild(sp);
+  state.tasks.filter(t=>t.cat==='study' && !t.scheduled)
+    .forEach(t=>root.appendChild(makeCard(t)));
+}
+
+function spawnStudyBlock(hours){
+  state.spawnCount++;
+  state.tasks.push({
+    id:'s'+state.spawnCount,
+    name:`Deep Work: Study Block #${state.spawnCount}`,
+    src:'Independent Study · your protected time',
+    cat:'study', est:hours, sug:hours, pri:'med', due:null,
+    verified:true, scheduled:null, parent:null, part:null,
+    isProject:false, expanded:false, chunks:null, spawned:true,
+  });
+  queueToast(`Added a ${fmtH(hours)} Deep Work block to your Braindump`);
+  render();
+}
+
+/* ----- Planner: grid ----- */
+function makeSlotItem(t){
+  const el = document.createElement('div');
+  const missed = t.due != null && t.scheduled.d > t.due;
+  el.className = `slot-item ${CATS[t.cat].cls}` + (missed ? ' deadline-miss' : '');
+  el.draggable = true;
+  el.title = `${t.name} — ${fmtH(t.est)}${t.due!=null ? ' · due '+DAYS[t.due] : ''}`;
+  el.innerHTML = `
+    <span class="pri-dot pri-${t.pri}"></span>
+    <span class="si-name">${esc(t.name)}</span>
+    ${missed ? '<span class="miss-flag" title="Scheduled past its deadline">⏰</span>' : ''}
+    <span class="si-est">${fmtH(t.est)}</span>
+    <button class="si-x" title="Send back to Braindump">×</button>`;
+  el.querySelector('.si-x').addEventListener('click', e=>{
+    e.stopPropagation();
+    t.scheduled = null;
+    queueToast(`“${t.name}” moved back to the Braindump`);
+    render();
+  });
+  el.addEventListener('dragstart', e=>startDrag(e, t.id, el));
+  el.addEventListener('dragend', ()=>endDrag(el));
+  return el;
+}
+
+function renderGrid(){
+  const grid = $('#weekGrid');
+  grid.innerHTML = '';
+
+  grid.appendChild(document.createElement('div'));
+  for(let d=0; d<7; d++){
+    const load = dayLoad(d);
+    const burn = load.total > DAY_BURNOUT_HOURS;
+    const head = document.createElement('div');
+    head.className = 'day-head' + (d>=5?' weekend':'') + (burn?' burnout':'');
+    const loadCls = burn ? 'burn' : (load.total > DAY_BURNOUT_HOURS-2 ? 'hot' : '');
+    head.innerHTML = `
+      <div class="d-name">${DAYS[d]}</div>
+      <div class="d-load ${loadCls}">${burn?'🔥 ':''}${fmtH(load.total)} planned</div>`;
+    grid.appendChild(head);
+  }
+
+  for(const b of BLOCKS){
+    const lbl = document.createElement('div');
+    lbl.className = 'row-label';
+    lbl.innerHTML = `<div class="r-name">${b.label}</div><div class="r-time">${b.time}</div>`;
+    grid.appendChild(lbl);
+
+    for(let d=0; d<7; d++){
+      const cell = document.createElement('div');
+      const used = cellTaskHours(d,b.id);
+      const free = cellFreeCap(d,b.id);
+      const over = used > free;
+      cell.className = 'cell' + (d>=5?' weekend':'') + (over?' over-cap':'');
+      cell.dataset.day = d; cell.dataset.block = b.id;
+
+      const body = document.createElement('div');
+      body.className = 'cell-body';
+      classesIn(d,b.id).forEach(c=>{
+        const ce = document.createElement('div');
+        ce.className = 'slot-item class-block';
+        ce.title = `${c.name} — fixed class session`;
+        ce.innerHTML = `<span class="lock">🔒</span><span class="si-name">${c.code} class</span><span class="si-est">${fmtH(c.hours)}</span>`;
+        body.appendChild(ce);
+      });
+      tasksIn(d,b.id).forEach(t=>body.appendChild(makeSlotItem(t)));
+      cell.appendChild(body);
+
+      const foot = document.createElement('div');
+      foot.className = 'cell-foot';
+      const pct = free>0 ? Math.min(100,(used/free)*100) : (used>0?100:0);
+      const barCls = over ? 'over' : (used===free && free>0 ? 'full' : '');
+      foot.innerHTML = `
+        <div class="cap-bar"><i class="${barCls}" style="width:${pct}%"></i></div>
+        <span class="cap-txt ${over?'over':''}">${fmtH(used)} / ${fmtH(free)}</span>`;
+      cell.appendChild(foot);
+
+      cell.addEventListener('dragover', e=>{
+        if(dragTaskId){ e.preventDefault(); cell.classList.add('drag-over'); }
+      });
+      cell.addEventListener('dragleave', ()=>cell.classList.remove('drag-over'));
+      cell.addEventListener('drop', e=>{
+        e.preventDefault();
+        cell.classList.remove('drag-over');
+        dropOnCell(e, d, b.id);
+      });
+      grid.appendChild(cell);
+    }
+  }
+}
+
+function renderAlerts(){
+  const strip = $('#alertStrip');
+  strip.innerHTML = '';
+  computeAlerts().slice(0,4).forEach(a=>{
+    const el = document.createElement('div');
+    el.className = `alert ${a.sev}`;
+    el.innerHTML = `<span class="ico">${a.ico}</span><span>${a.text}</span>`;
+    strip.appendChild(el);
+  });
+}
+
+/* ---------- Drag & drop (tasks + emails) ---------- */
+let dragTaskId = null;
+let dragEmailId = null;
+
+function startDrag(e, id, el){
+  dragTaskId = id;
+  e.dataTransfer.setData('text/plain', 'task:'+id);
+  e.dataTransfer.effectAllowed = 'move';
+  requestAnimationFrame(()=>el.classList.add('dragging'));
+}
+function endDrag(el){
+  el.classList.remove('dragging');
+  dragTaskId = null;
+}
+function draggedTask(e){
+  const data = e.dataTransfer.getData('text/plain');
+  const id = (data && data.startsWith('task:')) ? data.slice(5) : dragTaskId;
+  return id ? task(id) : null;
+}
+
+function dropOnCell(e, day, block){
+  const t = draggedTask(e);
+  if(!t || t.isProject || !t.verified) return;
+  const wasFree = cellFreeCap(day, block) - cellTaskHours(day, block);
+  t.scheduled = {d:day, b:block};
+  if(t.est > wasFree){
+    queueToast(`⚠️ That block is now over capacity — check the red glow`);
+  }
+  render();
+}
+
+const backlogEl = document.getElementById('backlog');
+backlogEl.addEventListener('dragover', e=>{
+  if(dragTaskId){ e.preventDefault(); backlogEl.classList.add('drag-over'); }
+});
+backlogEl.addEventListener('dragleave', ()=>backlogEl.classList.remove('drag-over'));
+backlogEl.addEventListener('drop', e=>{
+  e.preventDefault();
+  backlogEl.classList.remove('drag-over');
+  const t = draggedTask(e);
+  if(t && t.scheduled){ t.scheduled = null; render(); }
+});
+
+/* ---------- Task setup modal ---------- */
+let modalTaskId = null, modalEst = null, modalPri = null;
+
+function openTaskModal(id){
+  const t = task(id);
+  modalTaskId = id; modalEst = t.est; modalPri = t.pri;
+
+  $('#tmName').textContent = (t.parent ? `Part ${t.part}: ` : '') + t.name;
+  $('#tmSub').textContent = t.verified
+    ? 'Adjust your estimate or priority. Plans are drafts — updating them is the skill.'
+    : 'Verify this task before it can be scheduled. The email that produced it told you what\'s expected — be honest with yourself.';
+  $('#tmCat').innerHTML = `<span class="chip ${CATS[t.cat].cls}">${CATS[t.cat].label}</span><span class="chip est">${esc(t.src)}</span>`;
+  $('#tmDue').innerHTML = t.due != null
+    ? `<span class="chip due">📌 Due ${DAYS[t.due]} — hard deadline</span>`
+    : `<span class="chip est">No hard deadline — flexible</span>`;
+  $('#tmEstHint').textContent = t.sug != null
+    ? `The email suggested about ${fmtH(t.sug)}. Planning fallacy is real — most people underestimate by ~40%.`
+    : '';
+
+  const estWrap = $('#tmEst');
+  estWrap.innerHTML = '';
+  EST_OPTIONS.forEach(h=>{
+    const b = document.createElement('button');
+    b.textContent = h===0.5 ? '30 min' : (h + (h===1?' hour':' hours'));
+    if(h===modalEst) b.classList.add('sel');
+    b.addEventListener('click', ()=>{
+      modalEst = h;
+      estWrap.querySelectorAll('button').forEach(x=>x.classList.remove('sel'));
+      b.classList.add('sel');
+    });
+    estWrap.appendChild(b);
+  });
+
+  const priWrap = $('#tmPri');
+  priWrap.innerHTML = '';
+  PRIS.forEach(p=>{
+    const b = document.createElement('button');
+    b.textContent = p.label;
+    if(p.id===modalPri) b.classList.add('sel', p.cls);
+    b.addEventListener('click', ()=>{
+      modalPri = p.id;
+      priWrap.querySelectorAll('button').forEach(x=>x.classList.remove('sel','pri-h','pri-m','pri-l'));
+      b.classList.add('sel', p.cls);
+    });
+    priWrap.appendChild(b);
+  });
+
+  $('#tmConfirm').innerHTML = t.verified ? 'Save changes' : 'Confirm &amp; unlock ➜';
+  $('#taskOverlay').classList.add('open');
+}
+function closeTaskModal(){ $('#taskOverlay').classList.remove('open'); modalTaskId = null; }
+
+$('#tmCancel').addEventListener('click', closeTaskModal);
+$('#tmConfirm').addEventListener('click', ()=>{
+  const t = task(modalTaskId);
+  if(t){
+    const first = !t.verified;
+    t.est = modalEst; t.pri = modalPri; t.verified = true;
+    queueToast(first ? `“${t.name}” unlocked — drag it onto the board` : 'Task updated');
+  }
+  closeTaskModal();
+  render();
+});
+$('#taskOverlay').addEventListener('click', e=>{ if(e.target === $('#taskOverlay')) closeTaskModal(); });
+
+/* ---------- New folder modal ---------- */
+let folderTopic = null;
+
+function openFolderModal(){
+  folderTopic = null;
+  const wrap = $('#fmTopic');
+  wrap.innerHTML = '';
+  const used = new Set(state.folders.map(f=>f.topic));
+  Object.entries(TOPICS).forEach(([key, t])=>{
+    const b = document.createElement('button');
+    b.textContent = t.label;
+    b.disabled = used.has(key);
+    if(b.disabled) b.title = 'You already have a folder for this';
+    b.addEventListener('click', ()=>{
+      folderTopic = key;
+      wrap.querySelectorAll('button').forEach(x=>x.classList.remove('sel'));
+      b.classList.add('sel');
+      $('#fmName').value = t.code;
+    });
+    wrap.appendChild(b);
+  });
+  $('#fmName').value = '';
+  $('#folderOverlay').classList.add('open');
+}
+$('#fmCancel').addEventListener('click', ()=>$('#folderOverlay').classList.remove('open'));
+$('#folderOverlay').addEventListener('click', e=>{ if(e.target === $('#folderOverlay')) $('#folderOverlay').classList.remove('open'); });
+$('#fmCreate').addEventListener('click', ()=>{
+  if(!folderTopic){ queueToast('Pick what this folder is for first.'); return; }
+  const name = $('#fmName').value.trim() || TOPICS[folderTopic].code;
+  state.folders.push({id:'f_'+folderTopic, name, topic:folderTopic});
+  $('#folderOverlay').classList.remove('open');
+  queueToast(`Folder “${name}” created — drag its emails in`);
+  evalInboxAwards();
+  render();
+});
+
+/* ---------- Check My Week report ---------- */
+function buildReport(){
+  const items = [];
+  const push = (sev, ico, title, detail)=>items.push({sev, ico, title, detail});
+
+  // 0) Inbox status feeds the plan
+  const unproc = state.emails.filter(e=>!e.processed).length;
+  if(unproc === 0){
+    push('ok','📥','Inbox processed', 'Every email filed and reviewed — your Braindump has the full picture.');
+  } else {
+    push('warn','📥','Inbox not cleared', `${unproc} email${unproc>1?'s':''} still unfiled or unreviewed. Hidden asks become surprise deadlines.`);
+  }
+
+  // 1) Study quota
+  const q = quotaHours();
+  if(q >= QUOTA_MIN && q <= QUOTA_MAX){
+    push('ok','📚','Independent study quota: hit', `${fmtH(q)} of coursework + deep work against ${fmtH(CLASS_HOURS)} class hours — inside the ${fmtH(QUOTA_MIN)}–${fmtH(QUOTA_MAX)} standard.`);
+  } else if(q < QUOTA_MIN){
+    push('bad','📚','Independent study quota: short', `Only ${fmtH(q)} blocked of the ${fmtH(QUOTA_MIN)} minimum. In an accelerated program, the syllabus won't wait — add Deep Work blocks.`);
+  } else {
+    push('warn','📚','Independent study quota: overshot', `${fmtH(q)} is beyond the ${fmtH(QUOTA_MAX)} target. Sustainable beats heroic — protect recovery time too.`);
+  }
+
+  // 2) Unverified tasks
+  const unverified = state.tasks.filter(t=>!t.isProject && !t.verified);
+  if(state.tasks.length > 0 && unverified.length === 0){
+    push('ok','🔓','Braindump fully verified', 'Every task has a confirmed estimate and priority. That is the habit.');
+  } else if(unverified.length > 0){
+    push('warn','🔒','Unverified tasks in the Braindump', `${unverified.length} task${unverified.length>1?'s':''} still locked — you can't schedule what you haven't sized.`);
+  }
+
+  // 3) Unscheduled tasks
+  const unsched = state.tasks.filter(t=>!t.isProject && t.verified && !t.scheduled);
+  const unschedHigh = unsched.filter(t=>t.pri==='high');
+  if(state.tasks.length > 0 && unsched.length === 0 && unverified.length === 0){
+    push('ok','🗓','Everything is on the board', 'Full Braindump scheduled. Nothing left floating in your head.');
+  } else if(unschedHigh.length > 0){
+    push('bad','🗓','High-priority work left unscheduled', `${unschedHigh.map(t=>`“${t.name}”`).join(', ')} ${unschedHigh.length>1?'are':'is'} verified but not on the calendar. Unscheduled priorities are just wishes.`);
+  } else if(unsched.length > 0){
+    push('warn','🗓','Tasks still in the tray', `${unsched.length} verified task${unsched.length>1?'s':''} not yet placed on the board.`);
+  }
+
+  // 4) Deadlines
+  const misses = scheduledTasks().filter(t=>t.due!=null && t.scheduled.d > t.due);
+  if(misses.length === 0){
+    push('ok','⏰','All hard deadlines respected', 'Every scheduled task lands on or before its due day.');
+  } else {
+    push('bad','⏰','Deadline conflicts', misses.map(t=>`“${t.name}” sits on ${DAYS[t.scheduled.d]} but is due ${DAYS[t.due]}`).join('; ') + '.');
+  }
+
+  // 5) Capacity / burnout
+  const overCells = [];
+  for(let d=0;d<7;d++) for(const b of BLOCKS)
+    if(cellTaskHours(d,b.id) > cellFreeCap(d,b.id)) overCells.push(`${DAYS[d]} ${b.label.toLowerCase()}`);
+  const burnDays = DAYS.filter((_,d)=>dayLoad(d).total > DAY_BURNOUT_HOURS);
+  if(overCells.length===0 && burnDays.length===0){
+    push('ok','🧯','Workload within capacity', 'No block is overstuffed and no day crosses the burnout line.');
+  } else {
+    const bits = [];
+    if(overCells.length) bits.push(`over-capacity blocks: ${overCells.join(', ')}`);
+    if(burnDays.length) bits.push(`burnout-risk days (>${DAY_BURNOUT_HOURS}h): ${burnDays.join(', ')}`);
+    push('bad','🧯','Overload detected', bits.join(' · ') + '. Realistic capacity is a feature, not a limitation.');
+  }
+
+  // 6) Chunk sequencing
+  let seqOK = true, anyChunks = false;
+  for(const p of state.tasks.filter(t=>t.isProject)){
+    const placed = p.chunks.map(id=>task(id)).filter(c=>c && c.scheduled);
+    if(placed.length) anyChunks = true;
+    const sorted = [...placed].sort((a,b)=>a.part-b.part);
+    for(let i=1;i<sorted.length;i++){
+      if(slotIndex(sorted[i].scheduled) < slotIndex(sorted[i-1].scheduled)) seqOK = false;
+    }
+  }
+  if(anyChunks && seqOK){
+    push('ok','🐘','Elephant properly deconstructed', 'Project chunks are distributed in working order — research before outline, draft before polish.');
+  } else if(anyChunks){
+    push('warn','🐘','Chunks out of sequence', 'Some project parts are scheduled before the parts they depend on. Reorder them so each day builds on the last.');
+  }
+
+  const bads = items.filter(i=>i.sev==='bad').length;
+  const warns = items.filter(i=>i.sev==='warn').length;
+  let verdict, rank;
+  if(bads===0 && warns===0){ rank=3; verdict = {e:'🏆', t:'Founder-grade week', s:'Quota hit, deadlines beaten, capacity respected. This is what a plan you can actually execute looks like.'}; }
+  else if(bads===0){ rank=2; verdict = {e:'🚀', t:'Strong plan — minor tuning left', s:'The structure is solid. Clear the yellow flags and this week runs itself.'}; }
+  else if(bads<=2){ rank=1; verdict = {e:'🛠', t:'Workable draft — fix the red flags', s:'Good bones, but the red items will hurt on Thursday. Adjust and re-check.'}; }
+  else { rank=0; verdict = {e:'🔥', t:'This week will eat you alive', s:'Right now the plan runs on hope. Move things around and check again — that is exactly what this lab is for.'}; }
+
+  return {items, verdict, rank, bads, warns};
+}
+
+$('#btnCheck').addEventListener('click', ()=>{
+  const report = buildReport();
+  const before = pointsTotal();
+  evalPlannerAwards(report);
+  const gained = pointsTotal() - before;
+
+  $('#reportBody').innerHTML = report.items.map(i=>`
+    <div class="report-item ${i.sev}">
+      <span class="r-ico">${i.ico}</span>
+      <div><b>${i.title}</b><span>${i.detail}</span></div>
+    </div>`).join('');
+  $('#reportVerdict').innerHTML = `
+    <div class="v-emoji">${report.verdict.e}</div>
+    <div class="v-title">${report.verdict.t}</div>
+    <div class="v-sub">${report.verdict.s}</div>
+    <div class="v-op">⭐ ${pointsTotal()} OP${gained>0 ? ` · +${gained} this review` : ''}</div>`;
+  $('#reportOverlay').classList.add('open');
+  render();
+});
+$('#reportClose').addEventListener('click', ()=>$('#reportOverlay').classList.remove('open'));
+$('#reportAwards').addEventListener('click', ()=>{
+  $('#reportOverlay').classList.remove('open');
+  openAwardsModal();
+});
+$('#reportOverlay').addEventListener('click', e=>{ if(e.target === $('#reportOverlay')) $('#reportOverlay').classList.remove('open'); });
+
+/* ---------- Awards modal ---------- */
+function openAwardsModal(){
+  const pts = pointsTotal();
+  $('#tierRow').innerHTML = TIERS.map(t=>`
+    <div class="tier ${pts>=t.pts?'reached':''}">
+      <div class="t-ico">${t.ico}</div>
+      <div class="t-name">${t.name}</div>
+      <div class="t-pts">${t.pts} OP</div>
+    </div>`).join('');
+  $('#badgeGrid').innerHTML = ACHIEVEMENTS.map(a=>{
+    const got = !!state.earned[a.id];
+    return `<div class="badge-card ${got?'earned':'locked'}">
+      <span class="b-ico">${a.ico}</span>
+      <div>
+        <div class="b-name">${a.name}</div>
+        <div class="b-desc">${a.desc}</div>
+        <div class="b-pts">${got ? '✓ earned' : ''} +${a.pts} OP</div>
+      </div>
+    </div>`;
+  }).join('');
+  $('#completionCode').textContent = completionCode();
+  $('#awardsOverlay').classList.add('open');
+}
+$('#opPill').addEventListener('click', openAwardsModal);
+$('#awardsClose').addEventListener('click', ()=>$('#awardsOverlay').classList.remove('open'));
+$('#awardsOverlay').addEventListener('click', e=>{ if(e.target === $('#awardsOverlay')) $('#awardsOverlay').classList.remove('open'); });
+
+/* ---------- Tabs / intro / reset ---------- */
+$('#tabInbox').addEventListener('click', ()=>{ state.view='inbox'; render(); });
+$('#tabPlanner').addEventListener('click', ()=>{ state.view='planner'; render(); });
+
+$('#introClose').addEventListener('click', ()=>{
+  state.introSeen = true;
+  $('#introOverlay').classList.remove('open');
+  save();
+});
+$('#btnHelp').addEventListener('click', ()=>$('#introOverlay').classList.add('open'));
+$('#introOverlay').addEventListener('click', e=>{
+  if(e.target === $('#introOverlay')){ state.introSeen = true; $('#introOverlay').classList.remove('open'); save(); }
+});
+
+/* Two-step reset (sandboxed viewers block confirm() dialogs).
+   Earned OP and badges survive a reset — achievements are one-time. */
+let resetArmed = null;
+$('#btnReset').addEventListener('click', e=>{
+  const btn = e.currentTarget;
+  if(!resetArmed){
+    btn.textContent = 'Click again to reset';
+    btn.style.borderColor = 'var(--bad)';
+    btn.style.color = '#fda4af';
+    resetArmed = setTimeout(()=>{
+      btn.textContent = 'Reset';
+      btn.style.borderColor = ''; btn.style.color = '';
+      resetArmed = null;
+    }, 3000);
+    return;
+  }
+  clearTimeout(resetArmed); resetArmed = null;
+  btn.textContent = 'Reset';
+  btn.style.borderColor = ''; btn.style.color = '';
+  const kept = {earned: state.earned, discernMisses: state.discernMisses, lastVerdict: null};
+  state = defaultState();
+  state.introSeen = true;
+  state.earned = kept.earned;
+  render();
+  queueToast('Fresh week — your earned OP and badges are safe');
+});
+
+/* ---------- Toast queue ---------- */
+const toastQueue = [];
+let toastBusy = false;
+function queueToast(msg, isAward){
+  toastQueue.push({msg, isAward:!!isAward});
+  if(!toastBusy) nextToast();
+}
+function nextToast(){
+  const item = toastQueue.shift();
+  if(!item){ toastBusy = false; return; }
+  toastBusy = true;
+  const el = $('#toast');
+  el.textContent = item.msg;
+  el.className = item.isAward ? 'award show' : 'show';
+  setTimeout(()=>{
+    el.classList.remove('show');
+    setTimeout(nextToast, 250);
+  }, item.isAward ? 2400 : 1900);
+}
+
+/* ---------- Boot ---------- */
+state = load() || defaultState();
+if(!state.introSeen) $('#introOverlay').classList.add('open');
+render();
+</script>
+</body>
+</html>
